@@ -103,6 +103,7 @@ function App() {
   const [currentDate, setCurrentDate] = uS(() => todayStr());
   const [historyOpen, setHistoryOpen] = uS(false);
   const [targetsOpen, setTargetsOpen] = uS(false);
+  const [progressOpen, setProgressOpen] = uS(false);
   const [customVersion, bumpCustom] = uS(0);
 
   // Fetch from server on mount
@@ -244,6 +245,7 @@ function App() {
         accent={accent}
         onTargets={() => setTargetsOpen(true)}
         onHistory={() => setHistoryOpen(true)}
+        onProgress={() => setProgressOpen(true)}
         onPrev={() => setCurrentDate(offsetDate(currentDate, -1))}
         onNext={() => { if (currentDate !== today) setCurrentDate(offsetDate(currentDate, 1)); }}
         atToday={currentDate === today}
@@ -253,6 +255,8 @@ function App() {
         log={log} accent={accent} onJump={setCurrentDate}/>
       <TargetsSheet open={targetsOpen} onClose={() => setTargetsOpen(false)}
         weightKg={latestWeight} accent={accent}/>
+      <ProgressSheet open={progressOpen} onClose={() => setProgressOpen(false)}
+        log={log} accent={accent}/>
 
       {/* Tweaks */}
       <TweaksPanel title="Tweaks">
