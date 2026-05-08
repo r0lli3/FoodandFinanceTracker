@@ -246,9 +246,6 @@ function App() {
         onTargets={() => setTargetsOpen(true)}
         onHistory={() => setHistoryOpen(true)}
         onProgress={() => setProgressOpen(true)}
-        onPrev={() => setCurrentDate(offsetDate(currentDate, -1))}
-        onNext={() => { if (currentDate !== today) setCurrentDate(offsetDate(currentDate, 1)); }}
-        atToday={currentDate === today}
       />
 
       <HistorySheet open={historyOpen} onClose={() => setHistoryOpen(false)}

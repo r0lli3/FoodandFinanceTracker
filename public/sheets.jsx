@@ -63,10 +63,10 @@ function SectionHeader({ title, count, accent }) {
   );
 }
 
-function Dock({ accent, onTargets, onHistory, onProgress, currentDate, onPrev, onNext, atToday }) {
+function Dock({ accent, onTargets, onHistory, onProgress }) {
   const Btn = ({ icon, label, onClick, primary }) => (
     <button onClick={onClick} style={{
-      flex: 1, padding: '11px 6px', borderRadius: 14,
+      flex: 1, padding: '11px 8px', borderRadius: 14,
       border: '1px solid #161616',
       background: primary ? '#fff' : '#0c0c0c',
       color: primary ? '#000' : 'rgba(255,255,255,0.75)',
@@ -74,28 +74,17 @@ function Dock({ accent, onTargets, onHistory, onProgress, currentDate, onPrev, o
       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
     }}>
       <span style={{ fontSize: 16 }}>{icon}</span>
-      <span style={{ fontSize: 9.5, fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase' }}>{label}</span>
+      <span style={{ fontSize: 9.5, fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase' }}>{label}</span>
     </button>
   );
   return (
     <div style={{
-      display: 'flex', gap: 6, padding: '12px 16px 8px',
+      display: 'flex', gap: 8, padding: '12px 16px 8px',
       background: 'linear-gradient(to top, #000 60%, rgba(0,0,0,0))',
     }}>
-      <button onClick={onPrev} style={{
-        width: 42, padding: '11px 8px', borderRadius: 14, border: '1px solid #161616',
-        background: '#0c0c0c', color: 'rgba(255,255,255,0.6)', cursor: 'pointer',
-        fontSize: 16, fontFamily: 'Sora, sans-serif',
-      }}>←</button>
       <Btn icon={<DialIcon color={accent}/>} label="Targets" onClick={onTargets}/>
       <Btn icon={<TrendIcon color={accent}/>} label="Progress" onClick={onProgress}/>
       <Btn icon={<ListIcon color="rgba(255,255,255,0.75)"/>} label="History" onClick={onHistory}/>
-      <button onClick={onNext} disabled={atToday} style={{
-        width: 42, padding: '11px 8px', borderRadius: 14, border: '1px solid #161616',
-        background: '#0c0c0c', color: atToday ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.6)',
-        cursor: atToday ? 'default' : 'pointer',
-        fontSize: 16, fontFamily: 'Sora, sans-serif',
-      }}>→</button>
     </div>
   );
 }
