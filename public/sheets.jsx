@@ -4,7 +4,7 @@ const { useState: useState2, useEffect: useEffect2, useMemo: useMemo2 } = React;
 function Sheet({ open, onClose, title, children, height = '78vh' }) {
   return (
     <div style={{
-      position: 'absolute', inset: 0, zIndex: 100,
+      position: 'fixed', inset: 0, zIndex: 100,
       pointerEvents: open ? 'auto' : 'none',
       background: open ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0)',
       transition: 'background 240ms',
