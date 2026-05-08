@@ -103,6 +103,7 @@ function App() {
   const [currentDate, setCurrentDate] = uS(() => todayStr());
   const [historyOpen, setHistoryOpen] = uS(false);
   const [targetsOpen, setTargetsOpen] = uS(false);
+  const [customVersion, bumpCustom] = uS(0);
 
   // Fetch from server on mount
   uE(() => {
@@ -111,7 +112,7 @@ function App() {
 
   const today = todayStr();
   const counts = log[currentDate] || {};
-  const totals = uM(() => computeTotals(counts), [counts]);
+  const totals = uM(() => computeTotals(counts), [counts, customVersion]);
   const weight = log[currentDate]?._kg ?? null;
 
   // weight trend vs most-recent prior weight
@@ -135,6 +136,22 @@ function App() {
     const rounded = Math.round(kg * 10) / 10;
     setLog(prev => ({ ...prev, [currentDate]: { ...(prev[currentDate] || {}), _kg: rounded } }));
     saveWeightAPI(currentDate, rounded).catch(e => console.error('Save weight failed:', e));
+  };
+
+  const addCustomItem = () => {
+    const id = 'custom-' + Date.now();
+    const meal = { id, name: 'Custom', sub: 'Custom', protein: 0, carbs: 0, fat: 0, fiber: 0, cals: 0, custom: true };
+    const misc = SECTIONS.find(s => s.name === 'Misc');
+    if (misc) misc.meals.push(meal);
+    bumpCustom(v => v + 1);
+    updateCount(id, 1);
+  };
+  const updateCustomMacro = (mealId, key, value) => {
+    const meal = allMeals().find(m => m.id === mealId);
+    if (!meal) return;
+    meal[key] = value;
+    meal.cals = Math.round(meal.protein * 4 + meal.carbs * 4 + meal.fat * 9);
+    bumpCustom(v => v + 1);
   };
 
   const sectionsCounts = SECTIONS.map(s => ({
@@ -205,8 +222,24 @@ function App() {
                   accent={accent}
                   dense={t.density === 'compact'}
                   showSub={t.showSubtitles}
+                  editable={!!meal.custom}
+                  onMacroChange={meal.custom ? (k, v) => updateCustomMacro(meal.id, k, v) : undefined}
                 />
               ))}
+              {section.name === 'Misc' && (
+                <button onClick={addCustomItem} style={{
+                  padding: '12px',
+                  background: '#0a0a0a',
+                  border: '1px dashed #2a2a2a',
+                  borderRadius: 14,
+                  color: 'rgba(255,255,255,0.5)',
+                  fontFamily: 'Sora, sans-serif',
+                  fontSize: 11, fontWeight: 700,
+                  letterSpacing: '0.16em', textTransform: 'uppercase',
+                  cursor: 'pointer',
+                  marginTop: 2,
+                }}>+ Add Custom</button>
+              )}
             </div>
           </div>
         ))}

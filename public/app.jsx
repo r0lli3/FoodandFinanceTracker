@@ -216,7 +216,27 @@ function DayStrip({ currentDate, onPick, log, accent }) {
 }
 
 // ─── meal card ──────────────────────────────────────────────────────────
-function MealCard({ meal, count, onChange, accent, dense, showSub }) {
+function MacroInput({ letter, value, onChange }) {
+  return (
+    <label style={{ display: 'flex', alignItems: 'center', gap: 3, color: 'rgba(255,255,255,0.55)' }}>
+      <span style={{ color: 'rgba(255,255,255,0.3)' }}>{letter}</span>
+      <input
+        type="number" min="0" step="0.1" value={value}
+        onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: 38, padding: '2px 4px',
+          background: '#0e0e0e', border: '1px solid #1f1f1f', borderRadius: 4,
+          color: 'rgba(255,255,255,0.85)', fontFamily: 'JetBrains Mono, monospace',
+          fontSize: 10.5, textAlign: 'center', MozAppearance: 'textfield',
+          outline: 'none',
+        }}
+      />
+    </label>
+  );
+}
+
+function MealCard({ meal, count, onChange, accent, dense, showSub, editable, onMacroChange }) {
   const active = count > 0;
   return (
     <div style={{
@@ -242,10 +262,21 @@ function MealCard({ meal, count, onChange, accent, dense, showSub }) {
         <div style={{
           display: 'flex', gap: 10, marginTop: 6, fontFamily: 'JetBrains Mono, monospace',
           fontSize: 10.5, color: 'rgba(255,255,255,0.55)', letterSpacing: '-0.01em',
+          alignItems: 'center',
         }}>
-          <span><span style={{color:'rgba(255,255,255,0.3)'}}>P</span> {meal.protein}</span>
-          <span><span style={{color:'rgba(255,255,255,0.3)'}}>C</span> {meal.carbs}</span>
-          <span><span style={{color:'rgba(255,255,255,0.3)'}}>F</span> {meal.fat}</span>
+          {editable ? (
+            <>
+              <MacroInput letter="P" value={meal.protein} onChange={(v) => onMacroChange('protein', v)}/>
+              <MacroInput letter="C" value={meal.carbs}   onChange={(v) => onMacroChange('carbs',   v)}/>
+              <MacroInput letter="F" value={meal.fat}     onChange={(v) => onMacroChange('fat',     v)}/>
+            </>
+          ) : (
+            <>
+              <span><span style={{color:'rgba(255,255,255,0.3)'}}>P</span> {meal.protein}</span>
+              <span><span style={{color:'rgba(255,255,255,0.3)'}}>C</span> {meal.carbs}</span>
+              <span><span style={{color:'rgba(255,255,255,0.3)'}}>F</span> {meal.fat}</span>
+            </>
+          )}
           <span style={{ marginLeft: 'auto', color: active ? accent : 'rgba(255,255,255,0.7)', fontWeight: 600 }}>
             {meal.cals}<span style={{opacity:0.5, fontSize: 9}}> kcal</span>
           </span>
