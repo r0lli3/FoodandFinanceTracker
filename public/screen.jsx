@@ -178,23 +178,16 @@ function App() {
     }}>
       {/* Header */}
       <div style={{
-        padding: 'max(env(safe-area-inset-top), 16px) 20px 0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
+        padding: 'max(env(safe-area-inset-top), 16px) 20px 0',
       }}>
-        <div>
-          <div style={{
-            fontFamily: 'Sora, sans-serif', fontSize: 9.5, fontWeight: 700,
-            color: 'rgba(255,255,255,0.4)', letterSpacing: '0.24em', textTransform: 'uppercase',
-          }}>FUEL · {dateSubLabel}</div>
-          <div style={{
-            fontFamily: 'Sora, sans-serif', fontSize: 28, fontWeight: 600,
-            color: '#fff', letterSpacing: '-0.025em', marginTop: 3,
-          }}>{dateLabel}</div>
-        </div>
         <div style={{
-          width: 38, height: 38, borderRadius: 999, background: '#0c0c0c', border: '1px solid #1a1a1a',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontFamily: 'Sora, sans-serif', fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.7)',
-        }}>JT</div>
+          fontFamily: 'Sora, sans-serif', fontSize: 9.5, fontWeight: 700,
+          color: 'rgba(255,255,255,0.4)', letterSpacing: '0.24em', textTransform: 'uppercase',
+        }}>FUEL · {dateSubLabel}</div>
+        <div style={{
+          fontFamily: 'Sora, sans-serif', fontSize: 28, fontWeight: 600,
+          color: '#fff', letterSpacing: '-0.025em', marginTop: 3,
+        }}>{dateLabel}</div>
       </div>
 
       {/* Day strip */}
