@@ -283,26 +283,63 @@ function TargetsSheet({ open, onClose, weightKg, accent }) {
 }
 
 // ─── PROGRESS SHEET ─────────────────────────────────────────────────────
-const PROGRESS_RATE_PER_WEEK = 0.0025;
+const PROGRESS_GOALS = [
+  { id: 'aggressive_cut', label: 'Aggressive cut', rate: -0.010,  blurb: '−1.0%/wk' },
+  { id: 'cut',            label: 'Cut',            rate: -0.005,  blurb: '−0.5%/wk' },
+  { id: 'recomp',         label: 'Recomp',         rate:  0,      blurb: '0%/wk'    },
+  { id: 'lean_bulk',      label: 'Lean bulk',      rate:  0.0025, blurb: '+0.25%/wk'},
+  { id: 'bulk',           label: 'Bulk',           rate:  0.005,  blurb: '+0.5%/wk' },
+  { id: 'novice_bulk',    label: 'Novice bulk',    rate:  0.0075, blurb: '+0.75%/wk'},
+];
+const PROGRESS_DEFAULT_GOAL = 'lean_bulk';
 const PROGRESS_ROLLING_DAYS = 28;
-const PROGRESS_ANCHOR_KEY = 'fft_progress_anchor';
+const PROGRESS_FORECAST_DAYS = 28;
+const PROGRESS_ANCHOR_KEY = 'fft_progress_anchor';   // legacy, single-phase
+const PROGRESS_PHASES_KEY = 'fft_progress_phases';   // current, ordered list
 
-function getProgressAnchor() {
+function getGoal(id) {
+  return PROGRESS_GOALS.find(g => g.id === id)
+      || PROGRESS_GOALS.find(g => g.id === PROGRESS_DEFAULT_GOAL);
+}
+
+function getProgressPhases() {
+  try {
+    const raw = localStorage.getItem(PROGRESS_PHASES_KEY);
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) {
+        return arr
+          .filter(p => p && p.date && typeof p.kg === 'number')
+          .map(p => ({ goal: PROGRESS_DEFAULT_GOAL, ...p }))
+          .sort((a, b) => a.date.localeCompare(b.date));
+      }
+    }
+  } catch (_) {}
   try {
     const raw = localStorage.getItem(PROGRESS_ANCHOR_KEY);
-    if (!raw) return null;
-    const p = JSON.parse(raw);
-    if (p && p.date && typeof p.kg === 'number') return p;
+    if (raw) {
+      const p = JSON.parse(raw);
+      if (p && p.date && typeof p.kg === 'number') {
+        const migrated = [{ date: p.date, kg: p.kg, goal: p.goal || PROGRESS_DEFAULT_GOAL }];
+        saveProgressPhases(migrated);
+        return migrated;
+      }
+    }
   } catch (_) {}
-  return null;
+  return [];
 }
-function saveProgressAnchor(a) {
-  localStorage.setItem(PROGRESS_ANCHOR_KEY, JSON.stringify(a));
+function saveProgressPhases(phases) {
+  localStorage.setItem(PROGRESS_PHASES_KEY, JSON.stringify(phases));
 }
 function diffDaysISO(a, b) {
   const d1 = new Date(a + 'T00:00:00Z');
   const d2 = new Date(b + 'T00:00:00Z');
   return Math.round((d2 - d1) / 86400000);
+}
+function addDaysISO(dateStr, days) {
+  const d = new Date(dateStr + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
 }
 function rollingAverages(weightsAsc, windowDays) {
   return weightsAsc.map((w, i) => {
@@ -320,7 +357,8 @@ function rollingAverages(weightsAsc, windowDays) {
 }
 
 function ProgressSheet({ open, onClose, log, accent }) {
-  const [anchor, setAnchor] = useState2(() => getProgressAnchor());
+  const [phases, setPhases] = useState2(() => getProgressPhases());
+  const [selectedIdx, setSelectedIdx] = useState2(() => Math.max(0, getProgressPhases().length - 1));
 
   const weightsAsc = useMemo2(() =>
     Object.keys(log)
@@ -331,59 +369,115 @@ function ProgressSheet({ open, onClose, log, accent }) {
   );
 
   useEffect2(() => {
-    if (!anchor && weightsAsc.length > 0) {
-      const first = { date: weightsAsc[0].date, kg: weightsAsc[0].kg };
-      saveProgressAnchor(first);
-      setAnchor(first);
+    if (phases.length === 0 && weightsAsc.length > 0) {
+      const first = { date: weightsAsc[0].date, kg: weightsAsc[0].kg, goal: PROGRESS_DEFAULT_GOAL };
+      const next = [first];
+      saveProgressPhases(next);
+      setPhases(next);
+      setSelectedIdx(0);
     }
-  }, [anchor, weightsAsc]);
+  }, [phases.length, weightsAsc]);
 
-  const resetToLatest = () => {
+  const persist = (nextPhases, nextIdx) => {
+    saveProgressPhases(nextPhases);
+    setPhases(nextPhases);
+    if (typeof nextIdx === 'number') setSelectedIdx(Math.max(0, Math.min(nextIdx, nextPhases.length - 1)));
+  };
+
+  const newPhaseFromLatest = () => {
     if (!weightsAsc.length) return;
     const latest = weightsAsc[weightsAsc.length - 1];
-    const next = { date: latest.date, kg: latest.kg };
-    saveProgressAnchor(next);
-    setAnchor(next);
+    const currentGoal = phases[phases.length - 1]?.goal || PROGRESS_DEFAULT_GOAL;
+    // guard: don't create a duplicate phase starting on the same date as the existing last one
+    if (phases.length && phases[phases.length - 1].date === latest.date) {
+      const next = phases.slice(0, -1).concat([{ date: latest.date, kg: latest.kg, goal: currentGoal }]);
+      persist(next, next.length - 1);
+      return;
+    }
+    const next = phases.concat([{ date: latest.date, kg: latest.kg, goal: currentGoal }]);
+    persist(next, next.length - 1);
+  };
+
+  const setGoal = (goalId) => {
+    if (!phases[selectedIdx]) return;
+    const next = phases.map((p, i) => i === selectedIdx ? { ...p, goal: goalId } : p);
+    persist(next, selectedIdx);
+  };
+
+  const deleteSelectedPhase = () => {
+    if (phases.length <= 1) return;
+    const next = phases.filter((_, i) => i !== selectedIdx);
+    persist(next, Math.min(selectedIdx, next.length - 1));
   };
 
   return (
     <Sheet open={open} onClose={onClose} title="Weight Progress" height="80vh">
-      {weightsAsc.length === 0 || !anchor ? (
+      {weightsAsc.length === 0 || phases.length === 0 ? (
         <div style={{ padding: 32, color: 'rgba(255,255,255,0.4)', fontFamily: 'Sora, sans-serif', fontSize: 13 }}>
           Log a weight to see progress.
         </div>
       ) : (
-        <ProgressBody weightsAsc={weightsAsc} anchor={anchor} accent={accent} onResetAnchor={resetToLatest}/>
+        <ProgressBody
+          weightsAsc={weightsAsc}
+          phases={phases}
+          selectedIdx={Math.min(selectedIdx, phases.length - 1)}
+          onSelectIdx={setSelectedIdx}
+          accent={accent}
+          onNewPhase={newPhaseFromLatest}
+          onSetGoal={setGoal}
+          onDeletePhase={deleteSelectedPhase}
+        />
       )}
     </Sheet>
   );
 }
 
-function ProgressBody({ weightsAsc, anchor, accent, onResetAnchor }) {
+function ProgressBody({ weightsAsc, phases, selectedIdx, onSelectIdx, accent, onNewPhase, onSetGoal, onDeletePhase }) {
+  const [pickingGoal, setPickingGoal] = useState2(false);
+  const [confirmingNew, setConfirmingNew] = useState2(false);
+  const [confirmingDelete, setConfirmingDelete] = useState2(false);
+  useEffect2(() => { setConfirmingNew(false); setConfirmingDelete(false); setPickingGoal(false); }, [selectedIdx]);
+
   const today = todayStr();
-  const phaseWeights = weightsAsc.filter(w => w.date >= anchor.date);
-  const latest = phaseWeights.length ? phaseWeights[phaseWeights.length - 1] : { date: anchor.date, kg: anchor.kg };
+  const phase = phases[selectedIdx];
+  const nextPhase = phases[selectedIdx + 1] || null;
+  const isCurrent = selectedIdx === phases.length - 1;
+  const goal = getGoal(phase.goal);
+  const ratePerWeek = goal.rate;
+  const isCut = ratePerWeek < 0;
+
+  const phaseEndDate = isCurrent
+    ? today
+    : addDaysISO(nextPhase.date, -1);
+  const phaseWeights = weightsAsc.filter(w => w.date >= phase.date && w.date <= phaseEndDate);
+  const latest = phaseWeights.length ? phaseWeights[phaseWeights.length - 1] : { date: phase.date, kg: phase.kg };
   const rollingAll = rollingAverages(weightsAsc, PROGRESS_ROLLING_DAYS);
-  const rollingInPhase = rollingAll.filter(r => r.date >= anchor.date && r.kg != null);
+  const rollingInPhase = rollingAll.filter(r => r.date >= phase.date && r.date <= phaseEndDate && r.kg != null);
 
   const idealAt = (dateStr) => {
-    const days = diffDaysISO(anchor.date, dateStr);
+    const days = diffDaysISO(phase.date, dateStr);
     if (days < 0) return null;
-    return anchor.kg * Math.pow(1 + PROGRESS_RATE_PER_WEEK, days / 7);
+    if (ratePerWeek === 0) return phase.kg;
+    return phase.kg * Math.pow(1 + ratePerWeek, days / 7);
   };
 
   const idealAtLatest = idealAt(latest.date);
-  const totalGain = latest.kg - anchor.kg;
-  const weeksElapsed = diffDaysISO(anchor.date, latest.date) / 7;
-  const actualPctPerWeek = weeksElapsed > 0 ? Math.pow(latest.kg / anchor.kg, 1 / weeksElapsed) - 1 : 0;
+  const totalGain = latest.kg - phase.kg;
+  const weeksElapsed = diffDaysISO(phase.date, latest.date) / 7;
+  const actualPctPerWeek = weeksElapsed > 0 ? Math.pow(latest.kg / phase.kg, 1 / weeksElapsed) - 1 : 0;
   const deltaVsIdeal = latest.kg - idealAtLatest;
 
   const W = 360, H = 220;
   const padL = 36, padR = 16, padT = 14, padB = 28;
   const innerW = W - padL - padR, innerH = H - padT - padB;
 
-  const xStart = anchor.date;
-  const xEnd = today >= latest.date ? today : latest.date;
+  const xStart = phase.date;
+  const nowDate = isCurrent
+    ? (today >= latest.date ? today : latest.date)
+    : phaseEndDate;
+  const xEnd = isCurrent
+    ? addDaysISO(nowDate, PROGRESS_FORECAST_DAYS)
+    : phaseEndDate;
   const totalDays = Math.max(1, diffDaysISO(xStart, xEnd));
   const xAt = (ds) => padL + (diffDaysISO(xStart, ds) / totalDays) * innerW;
 
@@ -391,7 +485,7 @@ function ProgressBody({ weightsAsc, anchor, accent, onResetAnchor }) {
   const yVals = [
     ...phaseWeights.map(w => w.kg),
     ...rollingInPhase.map(r => r.kg),
-    anchor.kg, idealEndKg,
+    phase.kg, idealEndKg,
   ];
   let yMin = Math.min(...yVals);
   let yMax = Math.max(...yVals);
@@ -402,21 +496,65 @@ function ProgressBody({ weightsAsc, anchor, accent, onResetAnchor }) {
 
   const actualPts = phaseWeights.map(w => `${xAt(w.date).toFixed(1)},${yAt(w.kg).toFixed(1)}`).join(' ');
   const rollingPts = rollingInPhase.map(r => `${xAt(r.date).toFixed(1)},${yAt(r.kg).toFixed(1)}`).join(' ');
-  const idealX1 = xAt(anchor.date), idealY1 = yAt(anchor.kg);
+  const idealX1 = xAt(phase.date), idealY1 = yAt(phase.kg);
   const idealX2 = xAt(xEnd), idealY2 = yAt(idealEndKg);
+  const nowX = xAt(nowDate);
+  const forecastKg = idealEndKg;
 
   const yTicks = [yMax, (yMin + yMax) / 2, yMin];
-  const [ay, am, ad] = anchor.date.split('-');
+  const [ay, am, ad] = phase.date.split('-');
+  const onTrackDelta = isCut ? -deltaVsIdeal : deltaVsIdeal;
   const trackingColor = Math.abs(deltaVsIdeal) < 0.3 ? 'rgba(255,255,255,0.55)'
-    : (deltaVsIdeal < 0 ? '#FFB04A' : '#7CF8C0');
+    : (onTrackDelta >= 0 ? '#7CF8C0' : '#FFB04A');
+  const phaseDeltaColor = ratePerWeek === 0
+    ? (Math.abs(totalGain) < 0.5 ? '#7CF8C0' : '#FFB04A')
+    : ((isCut ? totalGain <= 0 : totalGain >= 0) ? '#7CF8C0' : '#FF6B4A');
+
+  const phaseLabel = isCurrent ? 'Current' : `Phase ${selectedIdx + 1}/${phases.length}`;
+  const phaseRangeLabel = isCurrent
+    ? `from ${ad}/${am}/${ay}`
+    : `${ad}/${am}/${ay} → ${phaseEndDate.split('-').reverse().join('/')}`;
 
   return (
     <div style={{ padding: '14px 16px 24px' }}>
+      {/* Phase navigator */}
+      <div style={{
+        display: 'grid', gridTemplateColumns: '36px 1fr 36px', alignItems: 'center', gap: 8,
+        marginBottom: 12, padding: '8px 10px', borderRadius: 12,
+        background: '#0a0a0a', border: '1px solid #161616',
+      }}>
+        <button onClick={() => onSelectIdx(selectedIdx - 1)} disabled={selectedIdx === 0}
+          aria-label="Previous phase" style={{
+            width: 36, height: 32, borderRadius: 8, cursor: selectedIdx === 0 ? 'default' : 'pointer',
+            background: 'transparent', border: '1px solid #1a1a1a',
+            color: selectedIdx === 0 ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.7)',
+            fontFamily: 'JetBrains Mono, monospace', fontSize: 14, padding: 0,
+          }}>←</button>
+        <div style={{ textAlign: 'center', lineHeight: 1.25 }}>
+          <div style={{
+            fontFamily: 'Sora, sans-serif', fontSize: 10, fontWeight: 700,
+            color: isCurrent ? accent : 'rgba(255,255,255,0.55)',
+            letterSpacing: '0.16em', textTransform: 'uppercase',
+          }}>{phaseLabel} · {goal.label}</div>
+          <div style={{
+            fontFamily: 'JetBrains Mono, monospace', fontSize: 11,
+            color: 'rgba(255,255,255,0.75)', marginTop: 2,
+          }}>{phaseRangeLabel}</div>
+        </div>
+        <button onClick={() => onSelectIdx(selectedIdx + 1)} disabled={isCurrent}
+          aria-label="Next phase" style={{
+            width: 36, height: 32, borderRadius: 8, cursor: isCurrent ? 'default' : 'pointer',
+            background: 'transparent', border: '1px solid #1a1a1a',
+            color: isCurrent ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.7)',
+            fontFamily: 'JetBrains Mono, monospace', fontSize: 14, padding: 0,
+          }}>→</button>
+      </div>
+
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 14 }}>
         <ProgressStat label="Latest"  value={latest.kg.toFixed(1)} unit="kg"/>
         <ProgressStat label="Phase Δ" value={`${totalGain >= 0 ? '+' : ''}${totalGain.toFixed(1)}`} unit="kg"
-          color={totalGain >= 0 ? '#7CF8C0' : '#FF6B4A'}/>
+          color={phaseDeltaColor}/>
         <ProgressStat label="Rate/wk" value={(actualPctPerWeek * 100).toFixed(2)} unit="%"/>
       </div>
 
@@ -441,6 +579,13 @@ function ProgressBody({ weightsAsc, anchor, accent, onResetAnchor }) {
           <line x1={idealX1.toFixed(1)} y1={idealY1.toFixed(1)}
                 x2={idealX2.toFixed(1)} y2={idealY2.toFixed(1)}
                 stroke="#7AB7FF" strokeWidth="1.5" strokeDasharray="4,3"/>
+          {/* now / forecast divider (current phase only) */}
+          {isCurrent && (<>
+            <line x1={nowX.toFixed(1)} y1={padT} x2={nowX.toFixed(1)} y2={H - padB}
+                  stroke="rgba(255,255,255,0.12)" strokeWidth="1" strokeDasharray="2,3"/>
+            <text x={nowX.toFixed(1)} y={padT - 3} fill="rgba(255,255,255,0.4)" fontSize="8"
+                  fontFamily="JetBrains Mono, monospace" textAnchor="middle">NOW</text>
+          </>)}
           {actualPts  && <polyline points={actualPts}  fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="1"/>}
           {rollingPts && <polyline points={rollingPts} fill="none" stroke={accent} strokeWidth="2"/>}
         </svg>
@@ -454,7 +599,7 @@ function ProgressBody({ weightsAsc, anchor, accent, onResetAnchor }) {
       }}>
         <ProgressLegend swatch="rgba(255,255,255,0.35)" label="Daily"/>
         <ProgressLegend swatch={accent}                  label="4-wk Avg"/>
-        <ProgressLegend swatch="#7AB7FF"                 label="Ideal +0.25%/wk" dashed/>
+        <ProgressLegend swatch="#7AB7FF"                 label={`Ideal ${goal.blurb}`} dashed/>
       </div>
 
       {/* Phase info */}
@@ -462,24 +607,113 @@ function ProgressBody({ weightsAsc, anchor, accent, onResetAnchor }) {
         marginTop: 14, padding: '10px 12px', borderRadius: 12,
         background: '#0a0a0a', border: '1px solid #161616',
         fontFamily: 'Sora, sans-serif', fontSize: 11.5, color: 'rgba(255,255,255,0.65)',
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10,
+        display: 'flex', flexDirection: 'column', gap: 6,
       }}>
-        <span>Phase from <span style={{ fontFamily: 'JetBrains Mono, monospace', color: '#fff' }}>{ad}/{am}/{ay}</span> @ <span style={{ fontFamily: 'JetBrains Mono, monospace', color: '#fff' }}>{anchor.kg.toFixed(1)}kg</span></span>
-        <span style={{ whiteSpace: 'nowrap' }}>vs ideal:&nbsp;
-          <span style={{ fontFamily: 'JetBrains Mono, monospace', color: trackingColor, fontWeight: 600 }}>
-            {deltaVsIdeal >= 0 ? '+' : ''}{deltaVsIdeal.toFixed(2)}kg
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+          <span>Started <span style={{ fontFamily: 'JetBrains Mono, monospace', color: '#fff' }}>{ad}/{am}/{ay}</span> @ <span style={{ fontFamily: 'JetBrains Mono, monospace', color: '#fff' }}>{phase.kg.toFixed(1)}kg</span></span>
+          <span style={{ whiteSpace: 'nowrap' }}>vs ideal:&nbsp;
+            <span style={{ fontFamily: 'JetBrains Mono, monospace', color: trackingColor, fontWeight: 600 }}>
+              {deltaVsIdeal >= 0 ? '+' : ''}{deltaVsIdeal.toFixed(2)}kg
+            </span>
           </span>
-        </span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, color: 'rgba(255,255,255,0.45)', fontSize: 11 }}>
+          <span>{goal.label} · <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>{goal.blurb}</span></span>
+          {isCurrent ? (
+            <span style={{ whiteSpace: 'nowrap' }}>In {Math.round(PROGRESS_FORECAST_DAYS / 7)} wks ideal:&nbsp;
+              <span style={{ fontFamily: 'JetBrains Mono, monospace', color: 'rgba(255,255,255,0.75)' }}>
+                {forecastKg.toFixed(1)}kg
+              </span>
+            </span>
+          ) : (
+            <span style={{ whiteSpace: 'nowrap' }}>Ended:&nbsp;
+              <span style={{ fontFamily: 'JetBrains Mono, monospace', color: 'rgba(255,255,255,0.75)' }}>
+                {latest.kg.toFixed(1)}kg
+              </span>
+            </span>
+          )}
+        </div>
       </div>
 
-      {/* Reset */}
-      <button onClick={onResetAnchor} style={{
-        marginTop: 12, width: '100%', padding: '11px',
-        borderRadius: 12, border: '1px dashed #2a2a2a', background: '#0a0a0a',
-        color: 'rgba(255,255,255,0.6)', cursor: 'pointer',
-        fontFamily: 'Sora, sans-serif', fontSize: 11, fontWeight: 700,
-        letterSpacing: '0.16em', textTransform: 'uppercase',
-      }}>Set new phase from latest</button>
+      {/* Goal picker */}
+      {pickingGoal && (
+        <div style={{
+          marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6,
+        }}>
+          {PROGRESS_GOALS.map(g => {
+            const active = g.id === goal.id;
+            return (
+              <button key={g.id}
+                onClick={() => { onSetGoal(g.id); setPickingGoal(false); }}
+                style={{
+                  padding: '10px 8px', borderRadius: 10, cursor: 'pointer',
+                  background: active ? '#15201a' : '#0a0a0a',
+                  border: active ? `1px solid ${accent}` : '1px solid #1a1a1a',
+                  color: active ? accent : 'rgba(255,255,255,0.75)',
+                  fontFamily: 'Sora, sans-serif', fontSize: 11, fontWeight: 600,
+                  display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2,
+                  textAlign: 'left',
+                }}>
+                <span>{g.label}</span>
+                <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, opacity: 0.7 }}>
+                  {g.blurb}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Actions */}
+      <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        <button onClick={() => setPickingGoal(p => !p)} style={{
+          padding: '11px',
+          borderRadius: 12, border: `1px ${pickingGoal ? 'solid' : 'dashed'} ${pickingGoal ? accent : '#2a2a2a'}`,
+          background: '#0a0a0a',
+          color: pickingGoal ? accent : 'rgba(255,255,255,0.6)', cursor: 'pointer',
+          fontFamily: 'Sora, sans-serif', fontSize: 11, fontWeight: 700,
+          letterSpacing: '0.16em', textTransform: 'uppercase',
+        }}>{pickingGoal ? 'Done' : 'Change goal'}</button>
+        <button
+          onClick={() => {
+            if (!confirmingNew) { setConfirmingNew(true); return; }
+            setConfirmingNew(false);
+            onNewPhase();
+          }}
+          onBlur={() => setConfirmingNew(false)}
+          style={{
+            padding: '11px',
+            borderRadius: 12,
+            border: confirmingNew ? `1px solid ${accent}` : '1px dashed #2a2a2a',
+            background: confirmingNew ? '#15201a' : '#0a0a0a',
+            color: confirmingNew ? accent : 'rgba(255,255,255,0.6)', cursor: 'pointer',
+            fontFamily: 'Sora, sans-serif', fontSize: 11, fontWeight: 700,
+            letterSpacing: '0.16em', textTransform: 'uppercase',
+          }}>{confirmingNew ? 'Tap to confirm' : 'New phase from latest'}</button>
+      </div>
+
+      {/* Discard (only when there's history to fall back to) */}
+      {phases.length > 1 && (
+        <button
+          onClick={() => {
+            if (!confirmingDelete) { setConfirmingDelete(true); return; }
+            setConfirmingDelete(false);
+            onDeletePhase();
+          }}
+          onBlur={() => setConfirmingDelete(false)}
+          style={{
+            marginTop: 8, width: '100%', padding: '10px',
+            borderRadius: 12, background: 'transparent',
+            border: confirmingDelete ? '1px solid #FF6B4A' : '1px dashed #1f1f1f',
+            color: confirmingDelete ? '#FF6B4A' : 'rgba(255,255,255,0.4)', cursor: 'pointer',
+            fontFamily: 'Sora, sans-serif', fontSize: 10, fontWeight: 700,
+            letterSpacing: '0.18em', textTransform: 'uppercase',
+          }}>
+          {confirmingDelete
+            ? 'Tap to confirm discard'
+            : (isCurrent ? 'Discard current phase (undo new phase)' : 'Discard this phase')}
+        </button>
+      )}
     </div>
   );
 }
