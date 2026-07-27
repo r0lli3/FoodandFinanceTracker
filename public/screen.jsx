@@ -1,102 +1,179 @@
-// Main screen + tweaks wiring
-const { useState: uS, useEffect: uE, useMemo: uM } = React;
+// Home screen — Whoop-style: ring trio, monitors, "My Day" stack
+const { useState: uS, useEffect: uE, useMemo: uM, useRef: uR } = React;
 
-function HeroBlock({ totals, accent, mode }) {
-  const calsPct = Math.min(1, totals.cals / TARGETS.cals);
-  const remaining = Math.max(0, TARGETS.cals - totals.cals);
-  const over = totals.cals > TARGETS.cals;
+// ─── hero: three rings ──────────────────────────────────────────────────
+function RingTrio({ totals, accent, onPress }) {
+  const calPct     = totals.cals / TARGETS.cals;
+  const proteinPct = totals.protein / TARGETS.protein;
+  const carbPct    = totals.carbs / TARGETS.carbs;
 
-  if (mode === 'bar') {
-    // Alternative hero: stacked horizontal bars
-    return (
-      <div style={{ padding: '4px 20px 14px' }}>
-        <div style={{
-          display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4,
-        }}>
-          <span style={{
-            fontFamily: 'JetBrains Mono, monospace', fontSize: 56, fontWeight: 600,
-            color: '#fff', letterSpacing: '-0.05em', lineHeight: 0.95,
-          }}>{Math.round(totals.cals)}</span>
-          <span style={{
-            fontFamily: 'JetBrains Mono, monospace', fontSize: 14, color: 'rgba(255,255,255,0.4)',
-            letterSpacing: '-0.02em',
-          }}>/ {TARGETS.cals} kcal</span>
-        </div>
-        <div style={{
-          fontFamily: 'Sora, sans-serif', fontSize: 11, fontWeight: 600,
-          color: over ? '#FF6B4A' : accent, letterSpacing: '0.14em', textTransform: 'uppercase',
-          marginBottom: 14,
-        }}>
-          {over ? `${Math.round(totals.cals - TARGETS.cals)} over target` : `${Math.round(remaining)} remaining`}
-        </div>
-        {/* segmented bar */}
-        <div style={{ height: 6, borderRadius: 3, background: '#141414', overflow: 'hidden', marginBottom: 16 }}>
-          <div style={{
-            height: '100%', width: `${calsPct*100}%`, background: accent,
-            transition: 'width 500ms cubic-bezier(0.2,0.8,0.2,1)',
-          }}/>
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {[
-            { k: 'protein', l: 'Protein', c: accent },
-            { k: 'carbs',   l: 'Carbs',   c: '#7AB7FF' },
-            { k: 'fat',     l: 'Fat',     c: '#FFB04A' },
-          ].map(m => {
-            const pct = Math.min(1, totals[m.k] / TARGETS[m.k]);
-            return (
-              <div key={m.k} style={{ flex: 1, padding: '10px 12px', borderRadius: 12, background: '#0c0c0c', border: '1px solid #161616' }}>
-                <div style={{
-                  fontFamily: 'Sora, sans-serif', fontSize: 9, fontWeight: 700,
-                  color: 'rgba(255,255,255,0.45)', letterSpacing: '0.16em', textTransform: 'uppercase',
-                }}>{m.l}</div>
-                <div style={{
-                  fontFamily: 'JetBrains Mono, monospace', fontSize: 18, fontWeight: 600,
-                  color: '#fff', letterSpacing: '-0.04em', marginTop: 2,
-                }}>{Math.round(totals[m.k])}<span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>g</span></div>
-                <div style={{ height: 3, borderRadius: 2, background: '#141414', marginTop: 6, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${pct*100}%`, background: m.c, transition: 'width 400ms' }}/>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  }
-
-  // ring mode (default)
   return (
-    <div style={{ padding: '4px 0 14px' }}>
-      <div style={{ display: 'flex', justifyContent: 'center', position: 'relative' }}>
-        <Ring size={210} stroke={11} value={totals.cals} target={TARGETS.cals} color={accent}>
-          <div style={{
-            fontFamily: 'Sora, sans-serif', fontSize: 9.5, fontWeight: 700,
-            color: 'rgba(255,255,255,0.4)', letterSpacing: '0.22em', textTransform: 'uppercase',
-          }}>Calories</div>
-          <div style={{
-            fontFamily: 'JetBrains Mono, monospace', fontSize: 48, fontWeight: 600,
-            color: '#fff', letterSpacing: '-0.05em', lineHeight: 1, marginTop: 4,
-          }}>{Math.round(totals.cals)}</div>
-          <div style={{
-            fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: 'rgba(255,255,255,0.4)',
-            letterSpacing: '-0.02em', marginTop: 6,
-          }}>of {TARGETS.cals}</div>
-          <div style={{
-            fontFamily: 'Sora, sans-serif', fontSize: 9.5, fontWeight: 700, marginTop: 8,
-            color: over ? '#FF6B4A' : accent, letterSpacing: '0.14em', textTransform: 'uppercase',
-          }}>{over ? `+${Math.round(totals.cals - TARGETS.cals)} over` : `${Math.round(remaining)} left`}</div>
-        </Ring>
+    <div style={{ display: 'flex', gap: 4, padding: '14px 12px 20px' }}>
+      <RingStat label="Calories" value={Math.round(calPct * 100)} unit="%"
+        pct={calPct} color={W.sleep} onPress={onPress}/>
+      <RingStat label="Protein" value={Math.round(proteinPct * 100)} unit="%"
+        pct={proteinPct} color={scaleColor(proteinPct)} onPress={onPress}/>
+      <RingStat label="Carbs" value={Math.round(totals.carbs)} unit="g"
+        pct={carbPct} color={W.blue} onPress={onPress}/>
+    </div>
+  );
+}
+
+// ─── monitors ───────────────────────────────────────────────────────────
+function Monitors({ totals, onTargets }) {
+  const macros = [
+    ['protein', TARGETS.protein],
+    ['carbs',   TARGETS.carbs],
+    ['fat',     TARGETS.fat],
+    ['fiber',   TARGETS.fiber],
+  ];
+  const hit = macros.filter(([k, t]) => totals[k] >= t * 0.85).length;
+  const started = totals.cals > 0;
+  const macroColor = hit === 4 ? W.green : started ? W.yellow : W.neutral;
+  const macroStatus = hit === 4 ? 'All hit' : started ? 'In progress' : 'Not started';
+
+  const remaining = TARGETS.cals - totals.cals;
+  const over = remaining < 0;
+  const balColor = over ? W.red : totals.cals === 0 ? W.neutral : W.sleep;
+
+  return (
+    <div style={{ display: 'flex', gap: 8, padding: '0 16px' }}>
+      <MonitorCard
+        title="Macro Monitor"
+        badge={`${hit}/4`}
+        badgeColor={macroColor}
+        status={macroStatus}
+        sub="Macros at target"
+        onPress={onTargets}
+      />
+      <MonitorCard
+        title="Fuel Balance"
+        badge={Math.abs(Math.round(remaining))}
+        badgeColor={balColor}
+        status={over ? 'Over target' : 'Remaining'}
+        sub={`of ${TARGETS.cals} kcal`}
+        onPress={onTargets}
+      />
+    </div>
+  );
+}
+
+// ─── macro breakdown ────────────────────────────────────────────────────
+function MacroBar({ label, value, target, color, unit = 'g' }) {
+  const pct = target ? Math.min(1, value / target) : 0;
+  return (
+    <div style={{ padding: '9px 0' }}>
+      <div style={{
+        display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+        gap: 8, marginBottom: 7,
+      }}>
+        <span style={T.label(10.5, W.t2)}>{label}</span>
+        <span style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
+          <span style={T.num(15)}>{Math.round(value)}</span>
+          <span style={{ fontSize: 11, fontWeight: 500, color: W.t3 }}>/ {target}{unit}</span>
+        </span>
       </div>
-      <div style={{ display: 'flex', gap: 6, padding: '14px 20px 0' }}>
-        <MiniDial label="Protein" value={totals.protein} target={TARGETS.protein} color={accent}/>
-        <MiniDial label="Carbs"   value={totals.carbs}   target={TARGETS.carbs}   color="#7AB7FF"/>
-        <MiniDial label="Fat"     value={totals.fat}     target={TARGETS.fat}     color="#FFB04A"/>
-        <MiniDial label="Fiber"   value={totals.fiber}   target={TARGETS.fiber}   color="#7CF8C0"/>
+      <div style={{ height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+        <div style={{
+          height: '100%', width: `${pct * 100}%`, background: color, borderRadius: 3,
+          transition: 'width 500ms cubic-bezier(0.2,0.8,0.2,1)',
+        }}/>
       </div>
     </div>
   );
 }
 
+function MacroCard({ totals, innerRef }) {
+  return (
+    <div ref={innerRef}>
+      <Card>
+        <CardHead title="Macros"/>
+        <MacroBar label="Protein" value={totals.protein} target={TARGETS.protein}
+          color={scaleColor(totals.protein / TARGETS.protein)}/>
+        <MacroBar label="Carbs"   value={totals.carbs}   target={TARGETS.carbs}   color={W.blue}/>
+        <MacroBar label="Fat"     value={totals.fat}     target={TARGETS.fat}     color={W.amber}/>
+        <MacroBar label="Fiber"   value={totals.fiber}   target={TARGETS.fiber}   color={W.green}/>
+      </Card>
+    </div>
+  );
+}
+
+// ─── today's intake summary ─────────────────────────────────────────────
+function IntakeCard({ counts, totals, accent, onAdd }) {
+  const logged = allMeals()
+    .filter(m => (counts[m.id] || 0) > 0)
+    .map(m => ({ meal: m, n: counts[m.id] }));
+
+  return (
+    <Card>
+      <CardHead title="Today's Intake" right={
+        <span style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
+          <span style={T.num(16)}>{Math.round(totals.cals)}</span>
+          <span style={{ fontSize: 10, fontWeight: 600, color: W.t3 }}>KCAL</span>
+        </span>
+      }/>
+      {logged.length === 0 ? (
+        <div style={{
+          padding: '18px 0 6px', textAlign: 'center', fontSize: 13, color: W.t3,
+        }}>Nothing logged yet</div>
+      ) : (
+        <div>
+          {logged.map(({ meal, n }, i) => (
+            <div key={meal.id} style={{
+              display: 'flex', alignItems: 'center', gap: 12, padding: '9px 0',
+              borderBottom: i === logged.length - 1 ? 'none' : `1px solid ${W.line}`,
+            }}>
+              <div style={{
+                flex: '0 0 auto', width: 56, height: 40, borderRadius: 9, background: accent,
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <span style={{
+                  fontSize: 14, fontWeight: 700, color: '#04212E', letterSpacing: '-0.03em', lineHeight: 1,
+                }}>{meal.cals * n}</span>
+                <span style={{
+                  fontSize: 8, fontWeight: 600, color: 'rgba(4,33,46,0.65)', letterSpacing: '0.08em',
+                  marginTop: 2,
+                }}>KCAL</span>
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{
+                  fontSize: 13.5, fontWeight: 600, color: W.text, letterSpacing: '-0.01em',
+                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                }}>{meal.name}</div>
+                <div style={{ fontSize: 11.5, color: W.t3, marginTop: 2 }}>
+                  P {Math.round(meal.protein * n)} · C {Math.round(meal.carbs * n)} · F {Math.round(meal.fat * n)}
+                </div>
+              </div>
+              {n > 1 && (
+                <span style={{
+                  ...T.label(10, W.t2), background: 'rgba(255,255,255,0.08)',
+                  padding: '4px 8px', borderRadius: 6,
+                }}>×{n}</span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      <button onClick={onAdd} style={{
+        width: '100%', marginTop: 12, padding: '11px', borderRadius: W.radiusSm, border: 'none',
+        background: 'rgba(255,255,255,0.08)', color: W.text, cursor: 'pointer',
+        ...T.label(11, W.text),
+      }}>+ Add Custom</button>
+    </Card>
+  );
+}
+
+// ─── outlook copy ───────────────────────────────────────────────────────
+function outlookHeadline(totals, weight) {
+  const remaining = Math.round(TARGETS.cals - totals.cals);
+  const pPct = Math.round((totals.protein / TARGETS.protein) * 100);
+  if (totals.cals === 0) return `${TARGETS.cals} kcal to fuel today`;
+  if (remaining < 0) return `${Math.abs(remaining)} kcal over · protein ${pPct}%`;
+  if (pPct >= 100) return `Protein done · ${remaining} kcal left`;
+  return `${remaining} kcal left · protein ${pPct}%`;
+}
+
+// ─── app ────────────────────────────────────────────────────────────────
 function App() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const [log, setLog] = uS({});
@@ -105,8 +182,9 @@ function App() {
   const [targetsOpen, setTargetsOpen] = uS(false);
   const [progressOpen, setProgressOpen] = uS(false);
   const [customVersion, bumpCustom] = uS(0);
+  const macroRef = uR(null);
+  const scrollRef = uR(null);
 
-  // Fetch from server on mount
   uE(() => {
     fetchHistorySummary().then(setLog).catch(e => console.error('Load failed:', e));
   }, []);
@@ -115,8 +193,8 @@ function App() {
   const counts = log[currentDate] || {};
   const totals = uM(() => computeTotals(counts), [counts, customVersion]);
   const weight = log[currentDate]?._kg ?? null;
+  const streak = uM(() => computeStreak(log), [log]);
 
-  // weight trend vs most-recent prior weight
   const trend = uM(() => {
     if (weight == null) return null;
     const dates = Object.keys(log).filter(k => !k.startsWith('_') && k < currentDate && log[k]?._kg != null).sort().reverse();
@@ -161,91 +239,102 @@ function App() {
 
   const dateLabel = currentDate === today ? 'Today'
     : currentDate === offsetDate(today, -1) ? 'Yesterday'
-    : new Date(currentDate+'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' });
-  const dateSubLabel = new Date(currentDate+'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    : new Date(currentDate+'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   const accent = t.accent;
 
-  // latest weight for targets sheet (from any day, prefer current)
   const latestWeight = uM(() => {
     const dates = Object.keys(log).filter(k => !k.startsWith('_') && log[k]?._kg != null).sort().reverse();
     return dates.length ? log[dates[0]]._kg : null;
   }, [log]);
 
+  const goToday = () => {
+    setCurrentDate(today);
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
     <div style={{
-      width: '100%', height: '100%', background: '#000',
-      fontFamily: 'Sora, sans-serif', color: '#fff',
-      display: 'flex', flexDirection: 'column', overflow: 'hidden',
+      width: '100%', height: '100%',
+      background: `linear-gradient(180deg, ${W.bgTop} 0%, ${W.bgMid} 22%, ${W.bg} 46%)`,
+      color: W.text, display: 'flex', flexDirection: 'column', overflow: 'hidden',
+      position: 'relative',
     }}>
-      {/* Header */}
-      <div style={{
-        padding: 'max(env(safe-area-inset-top), 16px) 20px 0',
-      }}>
+      <TopBar
+        dateLabel={dateLabel}
+        onPrev={() => setCurrentDate(d => offsetDate(d, -1))}
+        onNext={() => setCurrentDate(d => offsetDate(d, 1))}
+        canNext={currentDate < today}
+        streak={streak}
+        weight={weight ?? latestWeight}
+      />
+      <Wordmark/>
+
+      <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+        <RingTrio totals={totals} accent={accent}
+          onPress={() => macroRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })}/>
+
+        <Monitors totals={totals} onTargets={() => setTargetsOpen(true)}/>
+
+        {/* My Day */}
         <div style={{
-          fontFamily: 'Sora, sans-serif', fontSize: 9.5, fontWeight: 700,
-          color: 'rgba(255,255,255,0.4)', letterSpacing: '0.24em', textTransform: 'uppercase',
-        }}>FUEL · {dateSubLabel}</div>
-        <div style={{
-          fontFamily: 'Sora, sans-serif', fontSize: 28, fontWeight: 600,
-          color: '#fff', letterSpacing: '-0.025em', marginTop: 3,
-        }}>{dateLabel}</div>
-      </div>
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '30px 20px 14px',
+        }}>
+          <h2 style={{ fontSize: 26, fontWeight: 600, letterSpacing: '-0.025em' }}>My Day</h2>
+          <button onClick={addCustomItem} aria-label="Add custom item" style={{
+            width: 42, height: 42, borderRadius: 999, border: 'none', background: '#fff',
+            color: '#0E1216', fontSize: 24, fontWeight: 400, lineHeight: 1, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+          }}>+</button>
+        </div>
 
-      {/* Day strip */}
-      <DayStrip currentDate={currentDate} onPick={setCurrentDate} log={log} accent={accent}/>
+        <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <OutlookBanner headline={outlookHeadline(totals, weight)}
+            onPress={() => setProgressOpen(true)}/>
 
-      {/* Scroll area */}
-      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
-        <HeroBlock totals={totals} accent={accent} mode={t.heroMode}/>
+          <IntakeCard counts={counts} totals={totals} accent={accent} onAdd={addCustomItem}/>
 
-        {/* Weight */}
-        <div style={{ padding: '10px 16px 0' }}>
-          <SectionHeader title="Weight"/>
+          <MacroCard totals={totals} innerRef={macroRef}/>
+
+          {sectionsCounts.map(section => (
+            <Card key={section.name}>
+              <CardHead title={section.name} accentCount={section.count} accent={accent}/>
+              <div>
+                {section.meals.map((meal, i) => (
+                  <MealRow key={meal.id} meal={meal}
+                    count={counts[meal.id] || 0}
+                    onChange={(n) => updateCount(meal.id, n)}
+                    accent={accent}
+                    dense={t.density === 'compact'}
+                    showSub={t.showSubtitles}
+                    editable={!!meal.custom}
+                    onMacroChange={meal.custom ? (k, v) => updateCustomMacro(meal.id, k, v) : undefined}
+                    last={i === section.meals.length - 1}
+                  />
+                ))}
+              </div>
+            </Card>
+          ))}
+
+          <Card>
+            <CardHead title="Last 14 Days"/>
+            <DayStrip currentDate={currentDate} onPick={setCurrentDate} log={log} accent={accent}/>
+          </Card>
+
           <WeightCard weight={weight} onSave={setWeight} accent={accent} trend={trend}/>
         </div>
 
-        {/* Meal sections */}
-        {sectionsCounts.map(section => (
-          <div key={section.name} style={{ padding: '14px 16px 0' }}>
-            <SectionHeader title={section.name} count={section.count} accent={accent}/>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {section.meals.map(meal => (
-                <MealCard key={meal.id} meal={meal}
-                  count={counts[meal.id] || 0}
-                  onChange={(n) => updateCount(meal.id, n)}
-                  accent={accent}
-                  dense={t.density === 'compact'}
-                  showSub={t.showSubtitles}
-                  editable={!!meal.custom}
-                  onMacroChange={meal.custom ? (k, v) => updateCustomMacro(meal.id, k, v) : undefined}
-                />
-              ))}
-              {section.name === 'Misc' && (
-                <button onClick={addCustomItem} style={{
-                  padding: '12px',
-                  background: '#0a0a0a',
-                  border: '1px dashed #2a2a2a',
-                  borderRadius: 14,
-                  color: 'rgba(255,255,255,0.5)',
-                  fontFamily: 'Sora, sans-serif',
-                  fontSize: 11, fontWeight: 700,
-                  letterSpacing: '0.16em', textTransform: 'uppercase',
-                  cursor: 'pointer',
-                  marginTop: 2,
-                }}>+ Add Custom</button>
-              )}
-            </div>
-          </div>
-        ))}
-        <div style={{ height: 24 }}/>
+        {/* clearance for the floating dock */}
+        <div style={{ height: 92 }}/>
       </div>
 
-      {/* Dock */}
       <Dock
         accent={accent}
+        isToday={currentDate === today}
         onTargets={() => setTargetsOpen(true)}
         onHistory={() => setHistoryOpen(true)}
         onProgress={() => setProgressOpen(true)}
+        onToday={goToday}
       />
 
       <HistorySheet open={historyOpen} onClose={() => setHistoryOpen(false)}
@@ -255,15 +344,12 @@ function App() {
       <ProgressSheet open={progressOpen} onClose={() => setProgressOpen(false)}
         log={log} accent={accent}/>
 
-      {/* Tweaks */}
       <TweaksPanel title="Tweaks">
         <TweakSection title="Color">
           <TweakColor label="Accent" value={t.accent} onChange={(v) => setTweak('accent', v)}
             options={ACCENT_OPTIONS}/>
         </TweakSection>
         <TweakSection title="Layout">
-          <TweakRadio label="Hero" value={t.heroMode} onChange={(v) => setTweak('heroMode', v)}
-            options={[{ value: 'ring', label: 'Ring' }, { value: 'bar', label: 'Bar' }]}/>
           <TweakRadio label="Density" value={t.density} onChange={(v) => setTweak('density', v)}
             options={[{ value: 'comfortable', label: 'Comfortable' }, { value: 'compact', label: 'Compact' }]}/>
           <TweakToggle label="Show source labels" value={t.showSubtitles} onChange={(v) => setTweak('showSubtitles', v)}/>
