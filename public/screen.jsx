@@ -189,6 +189,9 @@ function App() {
   const [targetsOpen, setTargetsOpen] = uS(false);
   const [progressOpen, setProgressOpen] = uS(false);
   const [customVersion, bumpCustom] = uS(0);
+  // TARGETS is a mutated global, so applying new targets needs an explicit
+  // re-render nudge — same pattern as custom meals above.
+  const [, bumpTargets] = uS(0);
   const [units, setUnits] = useStoredState('fft_hero_units', 'abs');
   const isWide = useMediaQuery('(min-width: 768px)');
   const scrollRef = uR(null);
@@ -351,7 +354,8 @@ function App() {
       <HistorySheet open={historyOpen} onClose={() => setHistoryOpen(false)}
         log={log} accent={accent} onJump={setCurrentDate}/>
       <TargetsSheet open={targetsOpen} onClose={() => setTargetsOpen(false)}
-        weightKg={latestWeight} accent={accent}/>
+        weightKg={latestWeight} accent={accent}
+        onApply={(next) => { saveTargets(next); bumpTargets(v => v + 1); }}/>
       <ProgressSheet open={progressOpen} onClose={() => setProgressOpen(false)}
         log={log} accent={accent}/>
 
