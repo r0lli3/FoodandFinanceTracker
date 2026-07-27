@@ -2,19 +2,33 @@
 const { useState: uS, useEffect: uE, useMemo: uM, useRef: uR } = React;
 
 // ─── hero: three rings ──────────────────────────────────────────────────
-function RingTrio({ totals, accent, onPress }) {
-  const calPct     = totals.cals / TARGETS.cals;
-  const proteinPct = totals.protein / TARGETS.protein;
-  const carbPct    = totals.carbs / TARGETS.carbs;
+// `units` is 'pct' (83%) or 'abs' (115 over / 155g).
+function RingTrio({ totals, units, onToggle }) {
+  const abs = units === 'abs';
+  const ring = (label, value, target, color, unit) => {
+    const pct = target ? value / target : 0;
+    return {
+      label, pct, color,
+      value: abs ? Math.round(value) : Math.round(pct * 100),
+      unit:  abs ? '' : '%',
+      sub:   abs ? `/ ${target}${unit}` : null,
+    };
+  };
+  const rings = [
+    ring('Calories', totals.cals,    TARGETS.cals,    W.sleep, ''),
+    ring('Protein',  totals.protein, TARGETS.protein, scaleColor(totals.protein / TARGETS.protein), 'g'),
+    ring('Carbs',    totals.carbs,   TARGETS.carbs,   W.blue, 'g'),
+  ];
 
   return (
-    <div style={{ display: 'flex', gap: 4, padding: '14px 12px 20px' }}>
-      <RingStat label="Calories" value={Math.round(calPct * 100)} unit="%"
-        pct={calPct} color={W.sleep} onPress={onPress}/>
-      <RingStat label="Protein" value={Math.round(proteinPct * 100)} unit="%"
-        pct={proteinPct} color={scaleColor(proteinPct)} onPress={onPress}/>
-      <RingStat label="Carbs" value={Math.round(totals.carbs)} unit="g"
-        pct={carbPct} color={W.blue} onPress={onPress}/>
+    <div style={{ padding: '14px 12px 18px' }}>
+      <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
+        {rings.map(r => (
+          <RingStat key={r.label} label={r.label} value={r.value} unit={r.unit} sub={r.sub}
+            pct={r.pct} color={r.color} onPress={onToggle}/>
+        ))}
+      </div>
+      <UnitToggle mode={units} onChange={(m) => onToggle(m)}/>
     </div>
   );
 }
@@ -83,9 +97,8 @@ function MacroBar({ label, value, target, color, unit = 'g' }) {
   );
 }
 
-function MacroCard({ totals, innerRef }) {
+function MacroCard({ totals }) {
   return (
-    <div ref={innerRef}>
       <Card>
         <CardHead title="Macros"/>
         <MacroBar label="Protein" value={totals.protein} target={TARGETS.protein}
@@ -94,7 +107,6 @@ function MacroCard({ totals, innerRef }) {
         <MacroBar label="Fat"     value={totals.fat}     target={TARGETS.fat}     color={W.amber}/>
         <MacroBar label="Fiber"   value={totals.fiber}   target={TARGETS.fiber}   color={W.green}/>
       </Card>
-    </div>
   );
 }
 
@@ -182,8 +194,13 @@ function App() {
   const [targetsOpen, setTargetsOpen] = uS(false);
   const [progressOpen, setProgressOpen] = uS(false);
   const [customVersion, bumpCustom] = uS(0);
-  const macroRef = uR(null);
+  const [units, setUnits] = useStoredState('fft_hero_units', 'pct');
   const scrollRef = uR(null);
+
+  // Called both by the segmented control (passes a mode) and by tapping a
+  // ring (passes a click event) — the latter just flips.
+  const toggleUnits = (mode) =>
+    setUnits(typeof mode === 'string' ? mode : (units === 'pct' ? 'abs' : 'pct'));
 
   uE(() => {
     fetchHistorySummary().then(setLog).catch(e => console.error('Load failed:', e));
@@ -270,8 +287,7 @@ function App() {
       <Wordmark/>
 
       <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
-        <RingTrio totals={totals} accent={accent}
-          onPress={() => macroRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })}/>
+        <RingTrio totals={totals} units={units} onToggle={toggleUnits}/>
 
         <Monitors totals={totals} onTargets={() => setTargetsOpen(true)}/>
 
@@ -294,7 +310,7 @@ function App() {
 
           <IntakeCard counts={counts} totals={totals} accent={accent} onAdd={addCustomItem}/>
 
-          <MacroCard totals={totals} innerRef={macroRef}/>
+          <MacroCard totals={totals}/>
 
           {sectionsCounts.map(section => (
             <Card key={section.name}>

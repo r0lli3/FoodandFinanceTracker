@@ -137,7 +137,12 @@ function Chevron({ size = 10, color }) {
   );
 }
 
-function RingStat({ label, value, unit, pct, color, size = 100, onPress }) {
+// `sub` is the "/ 155g" denominator line shown in absolute-units mode.
+function RingStat({ label, value, unit, sub, pct, color, size = 100, onPress }) {
+  const digits = String(value).length;
+  const big = sub
+    ? (digits >= 4 ? 21 : 25)
+    : (digits >= 4 ? 25 : 30);
   return (
     <button onClick={onPress} style={{
       flex: 1, background: 'none', border: 'none', padding: 0,
@@ -146,11 +151,17 @@ function RingStat({ label, value, unit, pct, color, size = 100, onPress }) {
     }}>
       <Ring size={size} stroke={7} pct={pct} color={color}>
         <div style={{ display: 'flex', alignItems: 'baseline' }}>
-          <span style={T.num(size > 90 ? 30 : 26)}>{value}</span>
+          <span style={T.num(big)}>{value}</span>
           {unit && <span style={{
-            fontSize: 15, fontWeight: 600, color: W.text, letterSpacing: '-0.01em',
+            fontSize: big * 0.5, fontWeight: 600, color: W.text, letterSpacing: '-0.01em',
           }}>{unit}</span>}
         </div>
+        {sub && (
+          <div style={{
+            fontSize: 10.5, fontWeight: 600, color: W.t3, marginTop: 3,
+            letterSpacing: '-0.01em',
+          }}>{sub}</div>
+        )}
       </Ring>
       <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
         <span style={T.label(11.5, W.text)}>{label}</span>
@@ -158,6 +169,39 @@ function RingStat({ label, value, unit, pct, color, size = 100, onPress }) {
       </div>
     </button>
   );
+}
+
+// Segmented control for the hero readout units. Tapping a ring flips it too.
+function UnitToggle({ mode, onChange }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center' }}>
+      <div style={{ display: 'flex', gap: 2, background: W.cardHi, borderRadius: 999, padding: 3 }}>
+        {[['pct', '%'], ['abs', 'Grams']].map(([k, l]) => {
+          const on = mode === k;
+          return (
+            <button key={k} onClick={() => onChange(k)} style={{
+              border: 'none', borderRadius: 999, padding: '5px 14px', cursor: 'pointer',
+              background: on ? '#fff' : 'transparent',
+              transition: 'background 180ms',
+              ...T.label(10, on ? '#0E1216' : W.t2),
+            }}>{l}</button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// State backed by localStorage — survives reloads without touching the server.
+function useStoredState(key, initial) {
+  const [v, setV] = useState(() => {
+    try { return localStorage.getItem(key) ?? initial; } catch (_) { return initial; }
+  });
+  const set = (next) => {
+    setV(next);
+    try { localStorage.setItem(key, next); } catch (_) {}
+  };
+  return [v, set];
 }
 
 // ─── generic card ───────────────────────────────────────────────────────
@@ -588,7 +632,8 @@ function WeightCard({ weight, onSave, accent, trend }) {
   );
 }
 
-Object.assign(window, { Ring, RingStat, Chevron, Card, CardHead, MonitorCard, OutlookBanner,
+Object.assign(window, { Ring, RingStat, Chevron, UnitToggle, useStoredState,
+  Card, CardHead, MonitorCard, OutlookBanner,
   TopBar, Wordmark, DayStrip, MealRow, Stepper, WeightCard,
   todayStr, offsetDate, dayName, dayNum, monthShort, allMeals, computeTotals, computeStreak,
   loadLog, saveLog, ensureSeed, ACCENT_OPTIONS, TWEAK_DEFAULTS });
