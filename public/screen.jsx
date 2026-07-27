@@ -314,8 +314,11 @@ function App() {
 
         </div>
 
-        {/* clearance for the floating dock */}
-        <div style={{ height: 92 }}/>
+        {/* Clearance for the floating dock. Must track the dock's real height,
+            which grows with the home-indicator inset: 56 pill + 10 bottom pad
+            + 14 breathing room + the inset. A fixed value is wrong on any
+            device whose inset isn't zero. */}
+        <div style={{ height: 'calc(80px + env(safe-area-inset-bottom))' }}/>
       </div>
 
       <Dock
