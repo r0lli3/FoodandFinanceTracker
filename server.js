@@ -26,7 +26,38 @@ async function initDb() {
       kg NUMERIC(5,1) NOT NULL
     )
   `;
+  await ensureTargetsTable();
 }
+
+// initDb only runs under `node server.js`; on Vercel this module is imported,
+// so require.main !== module and it never fires. The targets table therefore
+// creates itself lazily, memoised per instance.
+let targetsTableReady = null;
+function ensureTargetsTable() {
+  if (!targetsTableReady) {
+    const sql = getDb();
+    targetsTableReady = sql`
+      CREATE TABLE IF NOT EXISTS targets (
+        id INTEGER PRIMARY KEY,
+        protein NUMERIC(6,1) NOT NULL,
+        carbs   NUMERIC(6,1) NOT NULL,
+        fat     NUMERIC(6,1) NOT NULL,
+        fiber   NUMERIC(6,1) NOT NULL,
+        cals    NUMERIC(6,0) NOT NULL
+      )
+    `.catch((e) => { targetsTableReady = null; throw e; });
+  }
+  return targetsTableReady;
+}
+
+const TARGET_FIELDS = ['protein', 'carbs', 'fat', 'fiber', 'cals'];
+const rowToTargets = (r) => r ? {
+  protein: parseFloat(r.protein),
+  carbs:   parseFloat(r.carbs),
+  fat:     parseFloat(r.fat),
+  fiber:   parseFloat(r.fiber),
+  cals:    parseFloat(r.cals),
+} : null;
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -123,6 +154,44 @@ app.delete('/api/weight', async (req, res) => {
   }
 });
 
+// GET /api/targets — the single active target row (null if never set)
+app.get('/api/targets', async (req, res) => {
+  try {
+    await ensureTargetsTable();
+    const sql = getDb();
+    const rows = await sql`SELECT * FROM targets WHERE id = 1`;
+    res.json(rowToTargets(rows[0]));
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/targets  body: { protein, carbs, fat, fiber, cals }
+app.post('/api/targets', async (req, res) => {
+  const body = req.body || {};
+  for (const k of TARGET_FIELDS) {
+    const v = body[k];
+    if (typeof v !== 'number' || !isFinite(v) || v < 0) {
+      return res.status(400).json({ error: `${k} must be a non-negative number` });
+    }
+  }
+  const { protein, carbs, fat, fiber, cals } = body;
+  try {
+    await ensureTargetsTable();
+    const sql = getDb();
+    await sql`
+      INSERT INTO targets (id, protein, carbs, fat, fiber, cals)
+      VALUES (1, ${protein}, ${carbs}, ${fat}, ${fiber}, ${cals})
+      ON CONFLICT (id) DO UPDATE SET
+        protein = EXCLUDED.protein, carbs = EXCLUDED.carbs,
+        fat = EXCLUDED.fat, fiber = EXCLUDED.fiber, cals = EXCLUDED.cals
+    `;
+    res.json({ ok: true, protein, carbs, fat, fiber, cals });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // GET /api/history — all days that have been logged (food + weight)
 app.get('/api/history', async (req, res) => {
   try {
@@ -137,12 +206,18 @@ app.get('/api/history', async (req, res) => {
 // GET /api/history/summary — all logs + weights in one query
 app.get('/api/history/summary', async (req, res) => {
   try {
+    await ensureTargetsTable();
     const sql = getDb();
-    const [logs, weights] = await Promise.all([
+    const [logs, weights, targets] = await Promise.all([
       sql`SELECT date, meal_name, count FROM logs WHERE count > 0 ORDER BY date DESC`,
-      sql`SELECT date, kg FROM weight ORDER BY date DESC`
+      sql`SELECT date, kg FROM weight ORDER BY date DESC`,
+      sql`SELECT * FROM targets WHERE id = 1`
     ]);
-    res.json({ logs, weights: weights.map(r => ({ date: r.date, kg: parseFloat(r.kg) })) });
+    res.json({
+      logs,
+      weights: weights.map(r => ({ date: r.date, kg: parseFloat(r.kg) })),
+      targets: rowToTargets(targets[0]),
+    });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

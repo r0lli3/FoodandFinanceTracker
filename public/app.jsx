@@ -42,7 +42,7 @@ const ensureSeed = () => ({}); // server is source of truth — no seeding
 
 async function fetchHistorySummary() {
   const res = await fetch('/api/history/summary');
-  const { logs, weights } = await res.json();
+  const { logs, weights, targets } = await res.json();
   const log = {};
   for (const row of logs) {
     if (!log[row.date]) log[row.date] = {};
@@ -52,7 +52,14 @@ async function fetchHistorySummary() {
     if (!log[w.date]) log[w.date] = {};
     log[w.date]._kg = w.kg;
   }
-  return log;
+  return { log, targets: targets || null };
+}
+async function saveTargetsAPI(targets) {
+  return fetch('/api/targets', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(targets),
+  });
 }
 async function saveCountAPI(date, mealId, count) {
   return fetch('/api/log', {
@@ -71,6 +78,7 @@ async function saveWeightAPI(date, kg) {
 window.fetchHistorySummary = fetchHistorySummary;
 window.saveCountAPI = saveCountAPI;
 window.saveWeightAPI = saveWeightAPI;
+window.saveTargetsAPI = saveTargetsAPI;
 
 const computeTotals = (counts) => {
   const t = { protein: 0, carbs: 0, fat: 0, fiber: 0, cals: 0 };
@@ -96,9 +104,16 @@ const deriveTargets = (newCals) => {
   return { cals: Math.round(newCals), protein, carbs, fat, fiber: TARGETS.fiber };
 };
 
-const saveTargets = (next) => {
+// localStorage is only a cache so the first paint isn't the default targets;
+// the server is the source of truth and overwrites it on load.
+const applyTargets = (next) => {
   Object.assign(TARGETS, next);
   try { localStorage.setItem(TARGETS_KEY, JSON.stringify(TARGETS)); } catch (_) {}
+};
+
+const saveTargets = (next) => {
+  applyTargets(next);
+  saveTargetsAPI(TARGETS).catch(e => console.error('Save targets failed:', e));
 };
 
 // Consecutive days with anything logged, ending today (or yesterday if today
@@ -163,9 +178,9 @@ function RingStat({ label, value, unit, sub, pct, color, size = 100, onPress }) 
     <button onClick={onPress} style={{
       flex: 1, background: 'none', border: 'none', padding: 0,
       cursor: onPress ? 'pointer' : 'default',
-      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
+      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 15,
     }}>
-      <Ring size={size} stroke={7} pct={pct} color={color}>
+      <Ring size={size} stroke={6} pct={pct} color={color}>
         <div style={{ display: 'flex', alignItems: 'baseline' }}>
           <span style={T.num(big)}>{value}</span>
           {unit && <span style={{
@@ -180,8 +195,8 @@ function RingStat({ label, value, unit, sub, pct, color, size = 100, onPress }) 
         )}
       </Ring>
       <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-        <span style={T.label(11.5, W.text)}>{label}</span>
-        <Chevron size={7} color={W.t3}/>
+        <span style={T.label(12.5, W.text)}>{label}</span>
+        <Chevron size={7.5} color={W.t3}/>
       </div>
     </button>
   );
@@ -604,5 +619,5 @@ Object.assign(window, { Ring, RingStat, Chevron, useStoredState, useMediaQuery,
   Card, CardHead, MonitorCard, OutlookBanner,
   TopBar, MealRow, Stepper, WeightCard,
   todayStr, offsetDate, dayName, dayNum, monthShort, allMeals, computeTotals, computeStreak,
-  deriveTargets, saveTargets,
+  deriveTargets, saveTargets, applyTargets,
   loadLog, saveLog, ensureSeed, ACCENT_OPTIONS, TWEAK_DEFAULTS });

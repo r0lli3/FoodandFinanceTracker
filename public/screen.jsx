@@ -15,16 +15,18 @@ function RingTrio({ totals, units, onToggle }) {
     };
   };
   const rings = [
-    ring('Calories', totals.cals,    TARGETS.cals,    W.green, ''),
-    ring('Protein',  totals.protein, TARGETS.protein, scaleColor(totals.protein / TARGETS.protein), 'g'),
-    ring('Carbs',    totals.carbs,   TARGETS.carbs,   W.blue, 'g'),
+    ring('Protein', totals.protein, TARGETS.protein, scaleColor(totals.protein / TARGETS.protein), 'g'),
+    ring('Carbs',   totals.carbs,   TARGETS.carbs,   W.blue,  'g'),
+    ring('Fat',     totals.fat,     TARGETS.fat,     W.amber, 'g'),
   ];
 
+  // gap:0 — the flex columns are equal width, so shrinking the ring inside
+  // them is what opens up the air between rings.
   return (
-    <div style={{ display: 'flex', gap: 4, padding: '10px 12px 20px' }}>
+    <div style={{ display: 'flex', gap: 0, padding: '18px 12px 28px' }}>
       {rings.map(r => (
         <RingStat key={r.label} label={r.label} value={r.value} unit={r.unit} sub={r.sub}
-          pct={r.pct} color={r.color} onPress={onToggle}/>
+          pct={r.pct} color={r.color} onPress={onToggle} size={88}/>
       ))}
     </div>
   );
@@ -67,43 +69,6 @@ function Monitors({ totals, onTargets }) {
         onPress={onTargets}
       />
     </div>
-  );
-}
-
-// ─── macro breakdown ────────────────────────────────────────────────────
-function MacroBar({ label, value, target, color, unit = 'g' }) {
-  const pct = target ? Math.min(1, value / target) : 0;
-  return (
-    <div style={{ padding: '9px 0' }}>
-      <div style={{
-        display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
-        gap: 8, marginBottom: 7,
-      }}>
-        <span style={T.label(10.5, W.t2)}>{label}</span>
-        <span style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
-          <span style={T.num(15)}>{Math.round(value)}</span>
-          <span style={{ fontSize: 11, fontWeight: 500, color: W.t3 }}>/ {target}{unit}</span>
-        </span>
-      </div>
-      <div style={{ height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
-        <div style={{
-          height: '100%', width: `${pct * 100}%`, background: color, borderRadius: 3,
-          transition: 'width 500ms cubic-bezier(0.2,0.8,0.2,1)',
-        }}/>
-      </div>
-    </div>
-  );
-}
-
-function MacroCard({ totals }) {
-  return (
-      <Card>
-        <CardHead title="Macros"/>
-        <MacroBar label="Protein" value={totals.protein} target={TARGETS.protein}
-          color={scaleColor(totals.protein / TARGETS.protein)}/>
-        <MacroBar label="Carbs"   value={totals.carbs}   target={TARGETS.carbs}   color={W.blue}/>
-        <MacroBar label="Fat"     value={totals.fat}     target={TARGETS.fat}     color={W.amber}/>
-      </Card>
   );
 }
 
@@ -202,7 +167,18 @@ function App() {
     setUnits(typeof mode === 'string' ? mode : (units === 'pct' ? 'abs' : 'pct'));
 
   uE(() => {
-    fetchHistorySummary().then(setLog).catch(e => console.error('Load failed:', e));
+    fetchHistorySummary().then(({ log, targets }) => {
+      setLog(log);
+      if (targets) {
+        // Server wins over the localStorage cache applied at boot.
+        applyTargets(targets);
+        bumpTargets(v => v + 1);
+      } else if (localStorage.getItem(TARGETS_KEY)) {
+        // Never synced: push the locally-saved targets up so this device's
+        // choice becomes the server's.
+        saveTargetsAPI(TARGETS).catch(e => console.error('Target migration failed:', e));
+      }
+    }).catch(e => console.error('Load failed:', e));
   }, []);
 
   const today = todayStr();
@@ -294,19 +270,17 @@ function App() {
         <Monitors totals={totals} onTargets={() => setTargetsOpen(true)}/>
 
         {/* My Day */}
-        <div style={{ padding: '30px 20px 14px' }}>
-          <h2 style={{ fontSize: 26, fontWeight: 600, letterSpacing: '-0.025em' }}>My Day</h2>
+        <div style={{ padding: '40px 20px 20px' }}>
+          <h2 style={{ fontSize: 28, fontWeight: 600, letterSpacing: '-0.025em' }}>My Day</h2>
         </div>
 
-        <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
           <WeightCard weight={weight} onSave={setWeight} accent={accent} trend={trend}/>
 
           <OutlookBanner headline={outlookHeadline(totals)}
             onPress={() => setProgressOpen(true)}/>
 
           <IntakeCard counts={counts} totals={totals} accent={accent} onAdd={addCustomItem}/>
-
-          <MacroCard totals={totals}/>
 
           {/* Tablet and up: meal sections sit three across. */}
           <div style={{
