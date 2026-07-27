@@ -21,14 +21,11 @@ function RingTrio({ totals, units, onToggle }) {
   ];
 
   return (
-    <div style={{ padding: '14px 12px 18px' }}>
-      <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
-        {rings.map(r => (
-          <RingStat key={r.label} label={r.label} value={r.value} unit={r.unit} sub={r.sub}
-            pct={r.pct} color={r.color} onPress={onToggle}/>
-        ))}
-      </div>
-      <UnitToggle mode={units} onChange={(m) => onToggle(m)}/>
+    <div style={{ display: 'flex', gap: 4, padding: '10px 12px 20px' }}>
+      {rings.map(r => (
+        <RingStat key={r.label} label={r.label} value={r.value} unit={r.unit} sub={r.sub}
+          pct={r.pct} color={r.color} onPress={onToggle}/>
+      ))}
     </div>
   );
 }
@@ -53,7 +50,7 @@ function Monitors({ totals, onTargets }) {
   return (
     <div style={{ display: 'flex', gap: 8, padding: '0 16px' }}>
       <MonitorCard
-        title="Macro Monitor"
+        title="Macro Targets"
         badge={`${hit}/4`}
         badgeColor={macroColor}
         status={macroStatus}
@@ -61,7 +58,7 @@ function Monitors({ totals, onTargets }) {
         onPress={onTargets}
       />
       <MonitorCard
-        title="Fuel Balance"
+        title="Calories"
         badge={Math.abs(Math.round(remaining))}
         badgeColor={balColor}
         status={over ? 'Over target' : 'Remaining'}
@@ -176,12 +173,10 @@ function IntakeCard({ counts, totals, accent, onAdd }) {
 }
 
 // ─── outlook copy ───────────────────────────────────────────────────────
-function outlookHeadline(totals, weight) {
+function outlookHeadline(totals) {
   const remaining = Math.round(TARGETS.cals - totals.cals);
   const pPct = Math.round((totals.protein / TARGETS.protein) * 100);
-  if (totals.cals === 0) return `${TARGETS.cals} kcal to fuel today`;
   if (remaining < 0) return `${Math.abs(remaining)} kcal over · protein ${pPct}%`;
-  if (pPct >= 100) return `Protein done · ${remaining} kcal left`;
   return `${remaining} kcal left · protein ${pPct}%`;
 }
 
@@ -284,7 +279,6 @@ function App() {
         streak={streak}
         weight={weight ?? latestWeight}
       />
-      <Wordmark/>
 
       <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
         <RingTrio totals={totals} units={units} onToggle={toggleUnits}/>
@@ -292,20 +286,14 @@ function App() {
         <Monitors totals={totals} onTargets={() => setTargetsOpen(true)}/>
 
         {/* My Day */}
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '30px 20px 14px',
-        }}>
+        <div style={{ padding: '30px 20px 14px' }}>
           <h2 style={{ fontSize: 26, fontWeight: 600, letterSpacing: '-0.025em' }}>My Day</h2>
-          <button onClick={addCustomItem} aria-label="Add custom item" style={{
-            width: 42, height: 42, borderRadius: 999, border: 'none', background: '#fff',
-            color: '#0E1216', fontSize: 24, fontWeight: 400, lineHeight: 1, cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
-          }}>+</button>
         </div>
 
         <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <OutlookBanner headline={outlookHeadline(totals, weight)}
+          <WeightCard weight={weight} onSave={setWeight} accent={accent} trend={trend}/>
+
+          <OutlookBanner headline={outlookHeadline(totals)}
             onPress={() => setProgressOpen(true)}/>
 
           <IntakeCard counts={counts} totals={totals} accent={accent} onAdd={addCustomItem}/>
@@ -332,12 +320,6 @@ function App() {
             </Card>
           ))}
 
-          <Card>
-            <CardHead title="Last 14 Days"/>
-            <DayStrip currentDate={currentDate} onPick={setCurrentDate} log={log} accent={accent}/>
-          </Card>
-
-          <WeightCard weight={weight} onSave={setWeight} accent={accent} trend={trend}/>
         </div>
 
         {/* clearance for the floating dock */}
