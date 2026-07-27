@@ -189,7 +189,7 @@ function App() {
   const [targetsOpen, setTargetsOpen] = uS(false);
   const [progressOpen, setProgressOpen] = uS(false);
   const [customVersion, bumpCustom] = uS(0);
-  const [units, setUnits] = useStoredState('fft_hero_units', 'pct');
+  const [units, setUnits] = useStoredState('fft_hero_units', 'abs');
   const scrollRef = uR(null);
 
   // Called both by the segmented control (passes a mode) and by tapping a
