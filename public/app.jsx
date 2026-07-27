@@ -284,27 +284,27 @@ function SunIcon() {
 }
 
 // ─── top bar ────────────────────────────────────────────────────────────
-function TopBar({ dateLabel, onPrev, onNext, canNext, streak, weight }) {
+function TopBar({ dateLabel, onPrev, onNext, canNext, streak }) {
   return (
     <div style={{
       padding: 'max(env(safe-area-inset-top), 12px) 16px 0',
       display: 'flex', alignItems: 'center', gap: 8,
     }}>
-      {/* streak */}
-      <div style={{
-        flex: '0 0 auto', display: 'flex', alignItems: 'center', gap: 6,
-        background: W.cardHi, borderRadius: 999, padding: '6px 11px 6px 9px',
-      }}>
-        <FlameIcon/>
-        <span style={{ fontSize: 13, fontWeight: 600, color: W.text, letterSpacing: '-0.01em' }}>
-          {streak}
-        </span>
+      {/* streak — the matching spacer on the right keeps the nav centered */}
+      <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-start' }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          background: W.cardHi, borderRadius: 999, padding: '6px 11px 6px 9px',
+        }}>
+          <FlameIcon/>
+          <span style={{ fontSize: 13, fontWeight: 600, color: W.text, letterSpacing: '-0.01em' }}>
+            {streak}
+          </span>
+        </div>
       </div>
 
       {/* date nav */}
-      <div style={{
-        flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2,
-      }}>
+      <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'center', gap: 2 }}>
         <NavArrow dir="left" onClick={onPrev} enabled/>
         <div style={{
           background: W.cardHi, borderRadius: 999, padding: '7px 16px',
@@ -313,13 +313,7 @@ function TopBar({ dateLabel, onPrev, onNext, canNext, streak, weight }) {
         <NavArrow dir="right" onClick={onNext} enabled={canNext}/>
       </div>
 
-      {/* weight readout — sits where Whoop puts the battery */}
-      <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'center', gap: 5 }}>
-        <span style={{ fontSize: 12.5, fontWeight: 500, color: W.t2, letterSpacing: '-0.01em' }}>
-          {weight != null ? `${weight}` : '—'}
-        </span>
-        <span style={{ fontSize: 10, fontWeight: 600, color: W.t3 }}>KG</span>
-      </div>
+      <div style={{ flex: 1 }}/>
     </div>
   );
 }
