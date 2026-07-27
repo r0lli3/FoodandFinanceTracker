@@ -26,7 +26,21 @@ window.SECTIONS = [
   },
 ];
 
-window.TARGETS = { protein: 155, carbs: 180, fat: 50, fiber: 30, cals: 1790 };
+// Baseline targets. Note the macros sum exactly to the calorie figure
+// (155*4 + 180*4 + 50*9 = 1790), an invariant the Targets sheet preserves
+// when it rescales them.
+window.TARGETS_BASE = { protein: 155, carbs: 180, fat: 50, fiber: 30, cals: 1790 };
+window.TARGETS_KEY = 'fft_targets';
+
+// TARGETS is read as a global all over the app, so the saved override is
+// merged in here — before any render — rather than threaded through state.
+window.TARGETS = { ...window.TARGETS_BASE };
+try {
+  const saved = JSON.parse(localStorage.getItem(window.TARGETS_KEY) || 'null');
+  if (saved && typeof saved.cals === 'number' && saved.cals > 0) {
+    Object.assign(window.TARGETS, saved);
+  }
+} catch (_) {}
 
 // Seed history (local prototype only — keeps the History sheet from being empty)
 window.SEED_HISTORY = {

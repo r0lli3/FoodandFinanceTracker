@@ -85,6 +85,22 @@ const computeTotals = (counts) => {
   return t;
 };
 
+// Rescale macro targets to a new calorie goal, holding the current split.
+// Protein and fat scale proportionally; carbs take the remainder so the
+// macros still add up to the calorie figure exactly after rounding.
+const deriveTargets = (newCals) => {
+  const k = newCals / TARGETS.cals;
+  const protein = Math.round(TARGETS.protein * k);
+  const fat = Math.round(TARGETS.fat * k);
+  const carbs = Math.max(0, Math.round((newCals - protein * 4 - fat * 9) / 4));
+  return { cals: Math.round(newCals), protein, carbs, fat, fiber: TARGETS.fiber };
+};
+
+const saveTargets = (next) => {
+  Object.assign(TARGETS, next);
+  try { localStorage.setItem(TARGETS_KEY, JSON.stringify(TARGETS)); } catch (_) {}
+};
+
 // Consecutive days with anything logged, ending today (or yesterday if today
 // is still empty — logging early in the day shouldn't reset the streak).
 const computeStreak = (log) => {
@@ -588,4 +604,5 @@ Object.assign(window, { Ring, RingStat, Chevron, useStoredState, useMediaQuery,
   Card, CardHead, MonitorCard, OutlookBanner,
   TopBar, MealRow, Stepper, WeightCard,
   todayStr, offsetDate, dayName, dayNum, monthShort, allMeals, computeTotals, computeStreak,
+  deriveTargets, saveTargets,
   loadLog, saveLog, ensureSeed, ACCENT_OPTIONS, TWEAK_DEFAULTS });

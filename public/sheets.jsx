@@ -34,7 +34,12 @@ function Sheet({ open, onClose, title, children, height = '82vh' }) {
             color: W.t2, cursor: 'pointer', fontSize: 15, lineHeight: 1, padding: 0,
           }}>×</button>
         </div>
-        <div style={{ flex: 1, overflowY: 'auto' }}>
+        {/* minHeight:0 is required — a flex item defaults to min-height:auto,
+            which keeps it at content size so overflow-y never engages. */}
+        <div style={{
+          flex: 1, minHeight: 0, overflowY: 'auto',
+          WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain',
+        }}>
           {children}
         </div>
       </div>
@@ -203,14 +208,24 @@ const TARGET_BANDS = [
   { mult: 10, cat: 'Aggressive Cut',   cls: '#FF0026' },
 ];
 
-function TargetsSheet({ open, onClose, weightKg, accent }) {
+function TargetsSheet({ open, onClose, weightKg, accent, onApply }) {
+  const [pending, setPending] = useState2(null);
+  // Never leave a half-finished confirmation behind when the sheet closes.
+  useEffect2(() => { if (!open) setPending(null); }, [open]);
+
   const lbs = weightKg ? weightKg * 2.20462 : null;
+
   return (
-    <Sheet open={open} onClose={onClose} title="Calorie Targets" height="80vh">
+    <Sheet open={open} onClose={onClose} height="80vh"
+      title={pending ? 'Confirm New Targets' : 'Calorie Targets'}>
       {!weightKg ? (
         <div style={{ padding: 32, color: W.t3, fontSize: 13 }}>
           Log your weight to see calorie targets.
         </div>
+      ) : pending ? (
+        <ConfirmTargets pending={pending} accent={accent}
+          onCancel={() => setPending(null)}
+          onConfirm={() => { onApply(pending.next); setPending(null); onClose(); }}/>
       ) : (
         <div style={{ padding: '4px 16px 28px' }}>
           <Card pad={14} style={{
@@ -220,31 +235,110 @@ function TargetsSheet({ open, onClose, weightKg, accent }) {
             <span style={T.num(17)}>{weightKg} kg</span>
             <span style={{ fontSize: 12, fontWeight: 500, color: W.t3 }}>· {lbs.toFixed(1)} lb</span>
           </Card>
+          <div style={{ ...T.label(10, W.t3), padding: '0 2px 8px' }}>Tap to set as your target</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {TARGET_BANDS.map(b => {
               const cals = Math.round(lbs * b.mult);
+              const current = Math.abs(cals - TARGETS.cals) <= 15;
               return (
-                <div key={b.mult} style={{
-                  display: 'grid', gridTemplateColumns: '4px 40px 1fr auto', gap: 12,
-                  alignItems: 'center', padding: '11px 14px 11px 10px',
-                  borderRadius: W.radiusSm, background: W.card,
-                }}>
+                <button key={b.mult}
+                  onClick={() => setPending({ band: b, cals, next: deriveTargets(cals) })}
+                  style={{
+                    display: 'grid', gridTemplateColumns: '4px 40px 1fr auto', gap: 12,
+                    alignItems: 'center', padding: '11px 14px 11px 10px', textAlign: 'left',
+                    borderRadius: W.radiusSm, cursor: 'pointer',
+                    background: current ? 'rgba(255,255,255,0.11)' : W.card,
+                    border: 'none', width: '100%',
+                  }}>
                   <span style={{
                     width: 4, height: 26, borderRadius: 2, background: b.cls, display: 'block',
                   }}/>
                   <span style={{ ...T.num(17), textAlign: 'center' }}>×{b.mult}</span>
-                  <span style={T.label(10.5, W.t2)}>{b.cat}</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
+                    <span style={T.label(10.5, W.t2)}>{b.cat}</span>
+                    {current && <span style={{
+                      ...T.label(8.5, '#04212E'), background: accent,
+                      padding: '2px 5px', borderRadius: 4, whiteSpace: 'nowrap',
+                    }}>Current</span>}
+                  </span>
                   <span style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
                     <span style={T.num(16)}>{cals.toLocaleString()}</span>
                     <span style={{ fontSize: 9.5, fontWeight: 600, color: W.t3 }}>KCAL</span>
                   </span>
-                </div>
+                </button>
               );
             })}
           </div>
         </div>
       )}
     </Sheet>
+  );
+}
+
+const TARGET_ROWS = [
+  { key: 'cals',    label: 'Calories', unit: '' },
+  { key: 'protein', label: 'Protein',  unit: 'g' },
+  { key: 'carbs',   label: 'Carbs',    unit: 'g' },
+  { key: 'fat',     label: 'Fat',      unit: 'g' },
+];
+
+function ConfirmTargets({ pending, accent, onCancel, onConfirm }) {
+  const { band, next } = pending;
+  return (
+    <div style={{ padding: '4px 16px 28px' }}>
+      <Card pad={16} style={{ marginBottom: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+          <span style={{ width: 4, height: 18, borderRadius: 2, background: band.cls }}/>
+          <span style={T.label(11, W.text)}>{band.cat}</span>
+        </div>
+        <div style={{ fontSize: 12.5, color: W.t2 }}>
+          ×{band.mult} multiplier · {next.cals.toLocaleString()} kcal per day
+        </div>
+      </Card>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {TARGET_ROWS.map(r => {
+          const from = TARGETS[r.key];
+          const to = next[r.key];
+          const delta = to - from;
+          const color = delta === 0 ? W.t3 : delta > 0 ? W.green : W.amber;
+          return (
+            <div key={r.key} style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              gap: 10, padding: '13px 14px', borderRadius: W.radiusSm, background: W.card,
+            }}>
+              <span style={T.label(10.5, W.t2)}>{r.label}</span>
+              <span style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                <span style={{ fontSize: 14, fontWeight: 600, color: W.t3 }}>
+                  {from.toLocaleString()}{r.unit}
+                </span>
+                <Chevron size={7} color={W.t4}/>
+                <span style={T.num(17)}>{to.toLocaleString()}{r.unit}</span>
+                <span style={{
+                  fontSize: 11, fontWeight: 700, color, background: `${color}1F`,
+                  padding: '3px 7px', borderRadius: 5, minWidth: 44, textAlign: 'center',
+                }}>{delta > 0 ? '+' : ''}{delta}</span>
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{ fontSize: 11.5, color: W.t3, padding: '12px 2px 0', lineHeight: 1.4 }}>
+        Protein and fat scale with calories; carbs take the remainder.
+      </div>
+
+      <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        <button onClick={onCancel} style={{
+          padding: '14px', borderRadius: W.radiusSm, border: 'none', cursor: 'pointer',
+          background: 'rgba(255,255,255,0.08)', ...T.label(11, W.t2),
+        }}>Cancel</button>
+        <button onClick={onConfirm} style={{
+          padding: '14px', borderRadius: W.radiusSm, border: 'none', cursor: 'pointer',
+          background: accent, ...T.label(11, '#04212E'),
+        }}>Confirm</button>
+      </div>
+    </div>
   );
 }
 
