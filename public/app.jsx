@@ -171,6 +171,21 @@ function RingStat({ label, value, unit, sub, pct, color, size = 100, onPress }) 
   );
 }
 
+// Inline styles can't carry media queries, so breakpoints go through JS.
+function useMediaQuery(query) {
+  const [matches, setMatches] = useState(() => {
+    try { return window.matchMedia(query).matches; } catch (_) { return false; }
+  });
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const onChange = (e) => setMatches(e.matches);
+    setMatches(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, [query]);
+  return matches;
+}
+
 // State backed by localStorage — survives reloads without touching the server.
 function useStoredState(key, initial) {
   const [v, setV] = useState(() => {
@@ -371,8 +386,75 @@ function MacroInput({ letter, value, onChange }) {
 }
 
 // Left tile echoes Whoop's activity chip (solid colored block + big number).
-function MealRow({ meal, count, onChange, accent, dense, showSub, editable, onMacroChange, last }) {
+function MealRow({ meal, count, onChange, accent, dense, showSub, editable, onMacroChange, last, stacked }) {
   const active = count > 0;
+  const name = (
+    <div style={{
+      fontSize: 14, fontWeight: 600, color: W.text, letterSpacing: '-0.012em',
+      lineHeight: 1.25, overflow: 'hidden',
+      display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2,
+    }}>{meal.name}</div>
+  );
+  const sub = showSub && meal.sub
+    ? <div style={{ ...T.label(9.5, W.t3), marginTop: 3 }}>{meal.sub}</div>
+    : null;
+  const macros = (
+    <div style={{
+      display: 'flex', gap: 10, marginTop: 5, alignItems: 'center',
+      fontSize: 11.5, fontWeight: 500, color: W.t2, letterSpacing: '-0.01em',
+    }}>
+      {editable ? (
+        <>
+          <MacroInput letter="P" value={meal.protein} onChange={(v) => onMacroChange('protein', v)}/>
+          <MacroInput letter="C" value={meal.carbs}   onChange={(v) => onMacroChange('carbs',   v)}/>
+          <MacroInput letter="F" value={meal.fat}     onChange={(v) => onMacroChange('fat',     v)}/>
+        </>
+      ) : (
+        <>
+          <span><span style={{ color: W.t4 }}>P</span> {meal.protein}</span>
+          <span><span style={{ color: W.t4 }}>C</span> {meal.carbs}</span>
+          <span><span style={{ color: W.t4 }}>F</span> {meal.fat}</span>
+        </>
+      )}
+    </div>
+  );
+
+  // In a narrow column (tablet 3-up) the side-by-side layout doesn't fit, so
+  // the name spans the full width and the kcal chip sits inline with the stepper.
+  if (stacked) {
+    return (
+      <div style={{
+        padding: dense ? '10px 0' : '12px 0',
+        borderBottom: last ? 'none' : `1px solid ${W.line}`,
+      }}>
+        {name}
+        {sub}
+        {macros}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          gap: 8, marginTop: 10,
+        }}>
+          <span style={{
+            display: 'inline-flex', alignItems: 'baseline', gap: 4,
+            padding: '6px 10px', borderRadius: 8,
+            background: active ? accent : 'rgba(255,255,255,0.07)',
+            transition: 'background 220ms',
+          }}>
+            <span style={{
+              fontSize: 13, fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1,
+              color: active ? '#04212E' : W.text,
+            }}>{meal.cals}</span>
+            <span style={{
+              fontSize: 8.5, fontWeight: 600, letterSpacing: '0.08em',
+              color: active ? 'rgba(4,33,46,0.65)' : W.t3,
+            }}>KCAL</span>
+          </span>
+          <Stepper count={count} onChange={onChange} accent={accent}/>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 12,
@@ -396,32 +478,9 @@ function MealRow({ meal, count, onChange, accent, dense, showSub, editable, onMa
       </div>
 
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{
-          fontSize: 14, fontWeight: 600, color: W.text, letterSpacing: '-0.012em',
-          lineHeight: 1.25, overflow: 'hidden',
-          display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2,
-        }}>{meal.name}</div>
-        {showSub && meal.sub && (
-          <div style={{ ...T.label(9.5, W.t3), marginTop: 3 }}>{meal.sub}</div>
-        )}
-        <div style={{
-          display: 'flex', gap: 10, marginTop: 5, alignItems: 'center',
-          fontSize: 11.5, fontWeight: 500, color: W.t2, letterSpacing: '-0.01em',
-        }}>
-          {editable ? (
-            <>
-              <MacroInput letter="P" value={meal.protein} onChange={(v) => onMacroChange('protein', v)}/>
-              <MacroInput letter="C" value={meal.carbs}   onChange={(v) => onMacroChange('carbs',   v)}/>
-              <MacroInput letter="F" value={meal.fat}     onChange={(v) => onMacroChange('fat',     v)}/>
-            </>
-          ) : (
-            <>
-              <span><span style={{ color: W.t4 }}>P</span> {meal.protein}</span>
-              <span><span style={{ color: W.t4 }}>C</span> {meal.carbs}</span>
-              <span><span style={{ color: W.t4 }}>F</span> {meal.fat}</span>
-            </>
-          )}
-        </div>
+        {name}
+        {sub}
+        {macros}
       </div>
 
       <Stepper count={count} onChange={onChange} accent={accent}/>
@@ -525,7 +584,7 @@ function WeightCard({ weight, onSave, accent, trend }) {
   );
 }
 
-Object.assign(window, { Ring, RingStat, Chevron, useStoredState,
+Object.assign(window, { Ring, RingStat, Chevron, useStoredState, useMediaQuery,
   Card, CardHead, MonitorCard, OutlookBanner,
   TopBar, MealRow, Stepper, WeightCard,
   todayStr, offsetDate, dayName, dayNum, monthShort, allMeals, computeTotals, computeStreak,

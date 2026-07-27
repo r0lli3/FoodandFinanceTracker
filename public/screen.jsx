@@ -190,6 +190,7 @@ function App() {
   const [progressOpen, setProgressOpen] = uS(false);
   const [customVersion, bumpCustom] = uS(0);
   const [units, setUnits] = useStoredState('fft_hero_units', 'abs');
+  const isWide = useMediaQuery('(min-width: 768px)');
   const scrollRef = uR(null);
 
   // Called both by the segmented control (passes a mode) and by tapping a
@@ -304,25 +305,35 @@ function App() {
 
           <MacroCard totals={totals}/>
 
-          {sectionsCounts.map(section => (
-            <Card key={section.name}>
-              <CardHead title={section.name} accentCount={section.count} accent={accent}/>
-              <div>
-                {section.meals.map((meal, i) => (
-                  <MealRow key={meal.id} meal={meal}
-                    count={counts[meal.id] || 0}
-                    onChange={(n) => updateCount(meal.id, n)}
-                    accent={accent}
-                    dense={t.density === 'compact'}
-                    showSub={t.showSubtitles}
-                    editable={!!meal.custom}
-                    onMacroChange={meal.custom ? (k, v) => updateCustomMacro(meal.id, k, v) : undefined}
-                    last={i === section.meals.length - 1}
-                  />
-                ))}
-              </div>
-            </Card>
-          ))}
+          {/* Tablet and up: meal sections sit three across. */}
+          <div style={{
+            display: isWide ? 'grid' : 'flex',
+            gridTemplateColumns: isWide ? 'repeat(3, 1fr)' : undefined,
+            alignItems: isWide ? 'start' : undefined,
+            flexDirection: isWide ? undefined : 'column',
+            gap: 10,
+          }}>
+            {sectionsCounts.map(section => (
+              <Card key={section.name}>
+                <CardHead title={section.name} accentCount={section.count} accent={accent}/>
+                <div>
+                  {section.meals.map((meal, i) => (
+                    <MealRow key={meal.id} meal={meal}
+                      count={counts[meal.id] || 0}
+                      onChange={(n) => updateCount(meal.id, n)}
+                      accent={accent}
+                      dense={t.density === 'compact'}
+                      showSub={t.showSubtitles}
+                      editable={!!meal.custom}
+                      onMacroChange={meal.custom ? (k, v) => updateCustomMacro(meal.id, k, v) : undefined}
+                      last={i === section.meals.length - 1}
+                      stacked={isWide}
+                    />
+                  ))}
+                </div>
+              </Card>
+            ))}
+          </div>
 
         </div>
 
