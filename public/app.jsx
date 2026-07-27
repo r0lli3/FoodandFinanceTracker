@@ -171,27 +171,6 @@ function RingStat({ label, value, unit, sub, pct, color, size = 100, onPress }) 
   );
 }
 
-// Segmented control for the hero readout units. Tapping a ring flips it too.
-function UnitToggle({ mode, onChange }) {
-  return (
-    <div style={{ display: 'flex', justifyContent: 'center' }}>
-      <div style={{ display: 'flex', gap: 2, background: W.cardHi, borderRadius: 999, padding: 3 }}>
-        {[['pct', '%'], ['abs', 'Grams']].map(([k, l]) => {
-          const on = mode === k;
-          return (
-            <button key={k} onClick={() => onChange(k)} style={{
-              border: 'none', borderRadius: 999, padding: '5px 14px', cursor: 'pointer',
-              background: on ? '#fff' : 'transparent',
-              transition: 'background 180ms',
-              ...T.label(10, on ? '#0E1216' : W.t2),
-            }}>{l}</button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 // State backed by localStorage — survives reloads without touching the server.
 function useStoredState(key, initial) {
   const [v, setV] = useState(() => {
@@ -376,86 +355,6 @@ function FlameIcon() {
   );
 }
 
-// ─── wordmark ───────────────────────────────────────────────────────────
-function Wordmark() {
-  return (
-    <div style={{
-      textAlign: 'center', padding: '14px 0 4px',
-      fontSize: 15, fontWeight: 700, color: W.text,
-      letterSpacing: '0.44em', textIndent: '0.44em',
-    }}>FUEL</div>
-  );
-}
-
-// ─── day strip ──────────────────────────────────────────────────────────
-function DayStrip({ currentDate, onPick, log, accent }) {
-  const today = todayStr();
-  const days = useMemo(() => {
-    const arr = [];
-    for (let i = 13; i >= 0; i--) arr.push(offsetDate(today, -i));
-    return arr;
-  }, [today]);
-
-  const scrollerRef = useRef(null);
-  useEffect(() => {
-    const el = scrollerRef.current?.querySelector(`[data-d="${currentDate}"]`);
-    if (el && scrollerRef.current) {
-      const sc = scrollerRef.current;
-      sc.scrollTo({ left: el.offsetLeft - sc.clientWidth/2 + el.offsetWidth/2, behavior: 'smooth' });
-    }
-  }, [currentDate]);
-
-  return (
-    <div ref={scrollerRef} style={{
-      display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none',
-      margin: '0 -4px', padding: '0 4px',
-    }}>
-      {days.map(d => {
-        const active = d === currentDate;
-        const isToday = d === today;
-        const cals = computeTotals(log[d] || {}).cals;
-        const pct = Math.min(1, cals / TARGETS.cals);
-        const logged = cals > 0;
-        return (
-          <button key={d} data-d={d} onClick={() => onPick(d)} style={{
-            flex: '0 0 auto', width: 46, borderRadius: 12,
-            border: 'none', cursor: 'pointer', padding: '9px 0 8px',
-            background: active ? '#fff' : W.cardHi,
-            color: active ? '#0E1216' : W.t2,
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-            position: 'relative', transition: 'background 180ms, color 180ms',
-          }}>
-            <span style={{
-              fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
-              opacity: active ? 0.5 : 0.75,
-            }}>{dayName(d).slice(0,3)}</span>
-            <span style={{
-              fontSize: 16, fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1,
-              color: active ? '#0E1216' : (logged ? W.text : W.t2),
-            }}>{dayNum(d)}</span>
-            <span style={{
-              width: 16, height: 3, borderRadius: 2, marginTop: 2, overflow: 'hidden',
-              background: active ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.10)',
-              display: 'block',
-            }}>
-              <span style={{
-                display: 'block', width: `${pct * 100}%`, height: '100%',
-                background: active ? '#0E1216' : accent, transition: 'width 400ms',
-              }}/>
-            </span>
-            {isToday && !active && (
-              <span style={{
-                position: 'absolute', top: 5, right: 5, width: 4, height: 4, borderRadius: 4,
-                background: accent,
-              }}/>
-            )}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 // ─── meal row ───────────────────────────────────────────────────────────
 function MacroInput({ letter, value, onChange }) {
   return (
@@ -632,8 +531,8 @@ function WeightCard({ weight, onSave, accent, trend }) {
   );
 }
 
-Object.assign(window, { Ring, RingStat, Chevron, UnitToggle, useStoredState,
+Object.assign(window, { Ring, RingStat, Chevron, useStoredState,
   Card, CardHead, MonitorCard, OutlookBanner,
-  TopBar, Wordmark, DayStrip, MealRow, Stepper, WeightCard,
+  TopBar, MealRow, Stepper, WeightCard,
   todayStr, offsetDate, dayName, dayNum, monthShort, allMeals, computeTotals, computeStreak,
   loadLog, saveLog, ensureSeed, ACCENT_OPTIONS, TWEAK_DEFAULTS });
