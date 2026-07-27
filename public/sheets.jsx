@@ -43,7 +43,7 @@ function Sheet({ open, onClose, title, children, height = '82vh' }) {
 }
 
 // ─── bottom nav ─────────────────────────────────────────────────────────
-function Dock({ accent, onTargets, onHistory, onProgress, onToday, isToday }) {
+function Dock({ onTargets, onHistory, onProgress, onToday }) {
   const Btn = ({ icon, label, onClick, active }) => (
     <button onClick={onClick} style={{
       flex: 1, padding: '7px 4px 6px', borderRadius: 14, border: 'none',
@@ -76,18 +76,6 @@ function Dock({ accent, onTargets, onHistory, onProgress, onToday, isToday }) {
         <Btn icon={DialIcon}   label="Targets"  onClick={onTargets}/>
         <Btn icon={ListIcon}   label="History"  onClick={onHistory}/>
       </div>
-      <button onClick={onToday} aria-label="Jump to today" style={{
-        flex: '0 0 auto', width: 50, height: 50, borderRadius: 999, cursor: 'pointer',
-        pointerEvents: 'auto',
-        border: `1.5px solid ${isToday ? 'rgba(255,255,255,0.14)' : accent}`,
-        background: 'radial-gradient(circle at 30% 20%, #2A3B57 0%, #17202C 70%)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
-      }}>
-        <span style={{
-          fontSize: 10, fontWeight: 700, letterSpacing: '0.06em',
-          color: isToday ? W.t2 : accent,
-        }}>NOW</span>
-      </button>
     </div>
   );
 }

@@ -15,7 +15,7 @@ function RingTrio({ totals, units, onToggle }) {
     };
   };
   const rings = [
-    ring('Calories', totals.cals,    TARGETS.cals,    W.sleep, ''),
+    ring('Calories', totals.cals,    TARGETS.cals,    W.green, ''),
     ring('Protein',  totals.protein, TARGETS.protein, scaleColor(totals.protein / TARGETS.protein), 'g'),
     ring('Carbs',    totals.carbs,   TARGETS.carbs,   W.blue, 'g'),
   ];
@@ -32,26 +32,27 @@ function RingTrio({ totals, units, onToggle }) {
 
 // ─── monitors ───────────────────────────────────────────────────────────
 function Monitors({ totals, onTargets }) {
+  // Fiber is tracked but no longer surfaced, so it isn't counted here either.
   const macros = [
     ['protein', TARGETS.protein],
     ['carbs',   TARGETS.carbs],
     ['fat',     TARGETS.fat],
-    ['fiber',   TARGETS.fiber],
   ];
   const hit = macros.filter(([k, t]) => totals[k] >= t * 0.85).length;
+  const all = macros.length;
   const started = totals.cals > 0;
-  const macroColor = hit === 4 ? W.green : started ? W.yellow : W.neutral;
-  const macroStatus = hit === 4 ? 'All hit' : started ? 'In progress' : 'Not started';
+  const macroColor = hit === all ? W.green : started ? W.yellow : W.neutral;
+  const macroStatus = hit === all ? 'All hit' : started ? 'In progress' : 'Not started';
 
   const remaining = TARGETS.cals - totals.cals;
   const over = remaining < 0;
-  const balColor = over ? W.red : totals.cals === 0 ? W.neutral : W.sleep;
+  const balColor = over ? W.red : totals.cals === 0 ? W.neutral : W.green;
 
   return (
     <div style={{ display: 'flex', gap: 8, padding: '0 16px' }}>
       <MonitorCard
         title="Macro Targets"
-        badge={`${hit}/4`}
+        badge={`${hit}/${all}`}
         badgeColor={macroColor}
         status={macroStatus}
         sub="Macros at target"
@@ -102,7 +103,6 @@ function MacroCard({ totals }) {
           color={scaleColor(totals.protein / TARGETS.protein)}/>
         <MacroBar label="Carbs"   value={totals.carbs}   target={TARGETS.carbs}   color={W.blue}/>
         <MacroBar label="Fat"     value={totals.fat}     target={TARGETS.fat}     color={W.amber}/>
-        <MacroBar label="Fiber"   value={totals.fiber}   target={TARGETS.fiber}   color={W.green}/>
       </Card>
   );
 }
@@ -232,8 +232,13 @@ function App() {
   const addCustomItem = () => {
     const id = 'custom-' + Date.now();
     const meal = { id, name: 'Custom', sub: 'Custom', protein: 0, carbs: 0, fat: 0, fiber: 0, cals: 0, custom: true };
-    const misc = SECTIONS.find(s => s.name === 'Misc');
-    if (misc) misc.meals.push(meal);
+    // The Custom section is created on first use so it isn't sitting empty.
+    let section = SECTIONS.find(s => s.name === 'Custom');
+    if (!section) {
+      section = { name: 'Custom', meals: [] };
+      SECTIONS.push(section);
+    }
+    section.meals.push(meal);
     bumpCustom(v => v + 1);
     updateCount(id, 1);
   };
@@ -277,7 +282,6 @@ function App() {
         onNext={() => setCurrentDate(d => offsetDate(d, 1))}
         canNext={currentDate < today}
         streak={streak}
-        weight={weight ?? latestWeight}
       />
 
       <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
@@ -327,8 +331,6 @@ function App() {
       </div>
 
       <Dock
-        accent={accent}
-        isToday={currentDate === today}
         onTargets={() => setTargetsOpen(true)}
         onHistory={() => setHistoryOpen(true)}
         onProgress={() => setProgressOpen(true)}
