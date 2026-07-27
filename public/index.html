@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-<meta name="theme-color" content="#000000">
+<meta name="theme-color" content="#0E1216">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Food Tracker</title>
@@ -11,21 +11,22 @@
 <link rel="apple-touch-icon" href="/icon.svg" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; touch-action: manipulation; }
   html, body { width: 100%; height: 100%; overscroll-behavior: none; }
   body {
-    font-family: 'Sora', sans-serif;
-    background: #000;
+    font-family: 'Inter', -apple-system, system-ui, sans-serif;
+    background: #0E1216;
     color: #fff;
     -webkit-font-smoothing: antialiased;
     overflow: hidden;
+    font-variant-numeric: tabular-nums;
   }
   #app-root { width: 100vw; height: 100vh; height: 100dvh; overflow: hidden; }
+  button { font-family: inherit; }
   input[type=number] { -moz-appearance: textfield; }
   input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-  /* Hide scrollbars in day strip */
   ::-webkit-scrollbar { display: none; }
 </style>
 </head>
@@ -37,13 +38,13 @@
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
 
+<script src="theme.js"></script>
 <script src="data.js"></script>
 <script type="text/babel" src="tweaks-panel.jsx"></script>
 <script type="text/babel" src="app.jsx"></script>
 <script type="text/babel" src="sheets.jsx"></script>
 <script type="text/babel" src="screen.jsx"></script>
 <script type="text/babel">
-  // Adjust header padding — no notch on real device, but keep safe-area for iOS
   const root = ReactDOM.createRoot(document.getElementById('app-root'));
   root.render(<App/>);
 </script>

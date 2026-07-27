@@ -1,36 +1,37 @@
-// Sheet overlays (history, targets), section header, dock
+// Sheet overlays (history, targets, progress) + bottom nav
 const { useState: useState2, useEffect: useEffect2, useMemo: useMemo2 } = React;
 
-function Sheet({ open, onClose, title, children, height = '78vh' }) {
+function Sheet({ open, onClose, title, children, height = '82vh' }) {
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 100,
       pointerEvents: open ? 'auto' : 'none',
-      background: open ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0)',
+      background: open ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0)',
+      backdropFilter: open ? 'blur(2px)' : 'none',
       transition: 'background 240ms',
       display: 'flex', alignItems: 'flex-end',
     }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div style={{
-        width: '100%', background: '#070707', color: '#fff',
-        borderRadius: '24px 24px 0 0',
-        borderTop: '1px solid #1a1a1a',
+        width: '100%', color: W.text,
+        background: `linear-gradient(180deg, ${W.bgTop} 0%, ${W.bg} 26%)`,
+        borderRadius: '26px 26px 0 0',
         height,
         transform: open ? 'translateY(0)' : 'translateY(100%)',
-        transition: 'transform 320ms cubic-bezier(0.2,0.8,0.2,1)',
+        transition: 'transform 340ms cubic-bezier(0.2,0.8,0.2,1)',
         display: 'flex', flexDirection: 'column', overflow: 'hidden',
       }}>
-        {/* drag handle */}
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0 4px' }}>
-          <div style={{ width: 36, height: 4, borderRadius: 4, background: '#222' }}/>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 2px' }}>
+          <div style={{ width: 38, height: 4, borderRadius: 4, background: 'rgba(255,255,255,0.18)' }}/>
         </div>
         <div style={{
-          padding: '8px 20px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          borderBottom: '1px solid #111',
+          padding: '10px 20px 14px', display: 'flex', alignItems: 'center',
+          justifyContent: 'space-between',
         }}>
-          <div style={{ fontFamily: 'Sora, sans-serif', fontWeight: 600, fontSize: 16, letterSpacing: '-0.01em' }}>{title}</div>
+          <div style={T.label(13, W.text)}>{title}</div>
           <button onClick={onClose} style={{
-            width: 30, height: 30, borderRadius: 999, border: '1px solid #1c1c1c', background: '#0d0d0d',
-            color: 'rgba(255,255,255,0.6)', cursor: 'pointer', fontSize: 14, lineHeight: 1,
+            width: 30, height: 30, borderRadius: 999, border: 'none',
+            background: 'rgba(255,255,255,0.10)',
+            color: W.t2, cursor: 'pointer', fontSize: 15, lineHeight: 1, padding: 0,
           }}>×</button>
         </div>
         <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -41,78 +42,91 @@ function Sheet({ open, onClose, title, children, height = '78vh' }) {
   );
 }
 
-function SectionHeader({ title, count, accent }) {
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
-      padding: '0 20px 8px', marginTop: 8,
-    }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-        <span style={{
-          fontFamily: 'Sora, sans-serif', fontSize: 10, fontWeight: 700,
-          color: 'rgba(255,255,255,0.55)', letterSpacing: '0.22em', textTransform: 'uppercase',
-        }}>{title}</span>
-        {count > 0 && (
-          <span style={{
-            fontFamily: 'JetBrains Mono, monospace', fontSize: 10, fontWeight: 600,
-            color: accent, letterSpacing: '-0.02em',
-          }}>· {count} logged</span>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function Dock({ accent, onTargets, onHistory, onProgress }) {
-  const Btn = ({ icon, label, onClick, primary }) => (
+// ─── bottom nav ─────────────────────────────────────────────────────────
+function Dock({ accent, onTargets, onHistory, onProgress, onToday, isToday }) {
+  const Btn = ({ icon, label, onClick, active }) => (
     <button onClick={onClick} style={{
-      flex: 1, padding: '11px 8px', borderRadius: 14,
-      border: '1px solid #161616',
-      background: primary ? '#fff' : '#0c0c0c',
-      color: primary ? '#000' : 'rgba(255,255,255,0.75)',
-      cursor: 'pointer', fontFamily: 'Sora, sans-serif',
+      flex: 1, padding: '7px 4px 6px', borderRadius: 14, border: 'none',
+      background: 'transparent', cursor: 'pointer',
       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
     }}>
-      <span style={{ fontSize: 16 }}>{icon}</span>
-      <span style={{ fontSize: 9.5, fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase' }}>{label}</span>
+      {icon(active ? W.text : 'rgba(255,255,255,0.55)')}
+      <span style={{
+        fontSize: 10, fontWeight: 600, letterSpacing: '0.01em',
+        color: active ? W.text : 'rgba(255,255,255,0.55)',
+      }}>{label}</span>
     </button>
   );
   return (
     <div style={{
-      display: 'flex', gap: 8, padding: '12px 16px 8px',
-      background: 'linear-gradient(to top, #000 60%, rgba(0,0,0,0))',
+      position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 20,
+      display: 'flex', alignItems: 'center', gap: 8,
+      padding: '22px 12px calc(10px + env(safe-area-inset-bottom))',
+      background: `linear-gradient(to top, ${W.bg} 42%, rgba(14,18,22,0))`,
+      pointerEvents: 'none',
     }}>
-      <Btn icon={<DialIcon color={accent}/>} label="Targets" onClick={onTargets}/>
-      <Btn icon={<TrendIcon color={accent}/>} label="Progress" onClick={onProgress}/>
-      <Btn icon={<ListIcon color="rgba(255,255,255,0.75)"/>} label="History" onClick={onHistory}/>
+      <div style={{
+        flex: 1, display: 'flex', alignItems: 'center', pointerEvents: 'auto',
+        background: 'rgba(30,37,45,0.88)',
+        backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
+        borderRadius: 999, padding: '4px 6px',
+      }}>
+        <Btn icon={HomeIcon}   label="Home"     onClick={onToday} active/>
+        <Btn icon={TrendIcon}  label="Progress" onClick={onProgress}/>
+        <Btn icon={DialIcon}   label="Targets"  onClick={onTargets}/>
+        <Btn icon={ListIcon}   label="History"  onClick={onHistory}/>
+      </div>
+      <button onClick={onToday} aria-label="Jump to today" style={{
+        flex: '0 0 auto', width: 50, height: 50, borderRadius: 999, cursor: 'pointer',
+        pointerEvents: 'auto',
+        border: `1.5px solid ${isToday ? 'rgba(255,255,255,0.14)' : accent}`,
+        background: 'radial-gradient(circle at 30% 20%, #2A3B57 0%, #17202C 70%)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+      }}>
+        <span style={{
+          fontSize: 10, fontWeight: 700, letterSpacing: '0.06em',
+          color: isToday ? W.t2 : accent,
+        }}>NOW</span>
+      </button>
     </div>
   );
 }
 
-function DialIcon({ color }) {
+function HomeIcon(color) {
   return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-      <circle cx="8" cy="8" r="6.25" stroke="rgba(255,255,255,0.25)" strokeWidth="1.5"/>
-      <path d="M8 1.75 A6.25 6.25 0 0 1 13.4 11" stroke={color} strokeWidth="1.8" strokeLinecap="round" fill="none"/>
-      <circle cx="8" cy="8" r="1.4" fill={color}/>
+    <svg width="19" height="19" viewBox="0 0 20 20" fill="none">
+      <path d="M3 8.4 10 3l7 5.4V16a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8.4Z"
+        stroke={color} strokeWidth="1.6" strokeLinejoin="round"/>
+      <path d="M6.4 12.4 8.6 10.2l2 1.6 3-3.4" stroke={color} strokeWidth="1.5"
+        strokeLinecap="round" strokeLinejoin="round"/>
     </svg>
   );
 }
-function ListIcon({ color }) {
+function DialIcon(color) {
   return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-      <rect x="2" y="3.25" width="12" height="1.5" rx="0.75" fill={color}/>
-      <rect x="2" y="7.25" width="9" height="1.5" rx="0.75" fill={color}/>
-      <rect x="2" y="11.25" width="11" height="1.5" rx="0.75" fill={color}/>
+    <svg width="19" height="19" viewBox="0 0 20 20" fill="none">
+      <circle cx="10" cy="10" r="7.2" stroke={color} strokeWidth="1.6"/>
+      <circle cx="10" cy="10" r="3" stroke={color} strokeWidth="1.6"/>
+      <circle cx="10" cy="10" r="1" fill={color}/>
     </svg>
   );
 }
-function TrendIcon({ color }) {
+function ListIcon(color) {
   return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-      <polyline points="2,11 5,8 8,9.5 11,5 14,3"
-        stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-      <circle cx="14" cy="3" r="1.4" fill={color}/>
+    <svg width="19" height="19" viewBox="0 0 20 20" fill="none">
+      <rect x="3" y="4.6" width="14" height="1.7" rx="0.85" fill={color}/>
+      <rect x="3" y="9.15" width="10" height="1.7" rx="0.85" fill={color}/>
+      <rect x="3" y="13.7" width="12.5" height="1.7" rx="0.85" fill={color}/>
+    </svg>
+  );
+}
+function TrendIcon(color) {
+  return (
+    <svg width="19" height="19" viewBox="0 0 20 20" fill="none">
+      <polyline points="3,14 7,9.5 10.5,11.5 17,4"
+        stroke={color} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+      <polyline points="12.6,4 17,4 17,8.4"
+        stroke={color} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
     </svg>
   );
 }
@@ -123,86 +137,63 @@ function HistorySheet({ open, onClose, log, accent, onJump }) {
   const today = todayStr();
 
   return (
-    <Sheet open={open} onClose={onClose} title="History" height="78vh">
+    <Sheet open={open} onClose={onClose} title="History">
       {dates.length === 0 ? (
-        <div style={{ padding: 32, color: 'rgba(255,255,255,0.4)', fontFamily: 'Sora, sans-serif', fontSize: 13 }}>
-          No history yet.
-        </div>
+        <div style={{ padding: 32, color: W.t3, fontSize: 13 }}>No history yet.</div>
       ) : (
-        <div style={{ padding: '12px 16px 24px' }}>
+        <div style={{ padding: '4px 16px 28px', display: 'flex', flexDirection: 'column', gap: 8 }}>
           {dates.map((d) => {
             const totals = computeTotals(log[d]);
             const kg = log[d]._kg;
             const hasFood = totals.cals > 0;
             const calsPct = Math.min(1, totals.cals / TARGETS.cals);
             return (
-              <div key={d} onClick={() => { onJump(d); onClose(); }} style={{
-                padding: '14px 14px', borderRadius: 14, background: '#0c0c0c',
-                border: '1px solid #161616', marginBottom: 8, cursor: 'pointer',
+              <Card key={d} pad={14} onClick={() => { onJump(d); onClose(); }} style={{
                 display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 14, alignItems: 'center',
               }}>
-                <div style={{
-                  width: 44, textAlign: 'center',
-                }}>
-                  <div style={{
-                    fontFamily: 'Sora, sans-serif', fontSize: 9, fontWeight: 600,
-                    color: 'rgba(255,255,255,0.4)', letterSpacing: '0.14em', textTransform: 'uppercase',
-                  }}>{dayName(d)}</div>
-                  <div style={{
-                    fontFamily: 'JetBrains Mono, monospace', fontSize: 22, fontWeight: 600,
-                    color: '#fff', letterSpacing: '-0.04em', lineHeight: 1.05,
-                  }}>{dayNum(d)}</div>
-                  <div style={{
-                    fontFamily: 'Sora, sans-serif', fontSize: 9, color: 'rgba(255,255,255,0.3)',
-                    textTransform: 'uppercase', letterSpacing: '0.1em',
-                  }}>{monthShort(d)}</div>
+                <div style={{ width: 42, textAlign: 'center' }}>
+                  <div style={T.label(9, W.t3)}>{dayName(d)}</div>
+                  <div style={{ ...T.num(22), marginTop: 2 }}>{dayNum(d)}</div>
+                  <div style={{ ...T.label(9, W.t4), marginTop: 3 }}>{monthShort(d)}</div>
                 </div>
                 <div style={{ minWidth: 0 }}>
                   {hasFood ? (
                     <>
-                      <div style={{
-                        fontFamily: 'JetBrains Mono, monospace', fontSize: 16, fontWeight: 600,
-                        color: '#fff', letterSpacing: '-0.03em',
-                      }}>
-                        {Math.round(totals.cals)}<span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginLeft: 4 }}>kcal</span>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                        <span style={T.num(18)}>{Math.round(totals.cals)}</span>
+                        <span style={{ fontSize: 10, fontWeight: 600, color: W.t3 }}>KCAL</span>
                       </div>
                       <div style={{
-                        display: 'flex', gap: 9, marginTop: 4,
-                        fontFamily: 'JetBrains Mono, monospace', fontSize: 10, color: 'rgba(255,255,255,0.5)',
+                        display: 'flex', gap: 10, marginTop: 4,
+                        fontSize: 11, fontWeight: 500, color: W.t2,
                       }}>
-                        <span>P {Math.round(totals.protein)}g</span>
-                        <span>C {Math.round(totals.carbs)}g</span>
-                        <span>F {Math.round(totals.fat)}g</span>
+                        <span><span style={{ color: W.t4 }}>P</span> {Math.round(totals.protein)}</span>
+                        <span><span style={{ color: W.t4 }}>C</span> {Math.round(totals.carbs)}</span>
+                        <span><span style={{ color: W.t4 }}>F</span> {Math.round(totals.fat)}</span>
                       </div>
                       <div style={{
-                        marginTop: 7, height: 3, borderRadius: 2, background: '#181818', overflow: 'hidden',
+                        marginTop: 8, height: 3, borderRadius: 2,
+                        background: 'rgba(255,255,255,0.10)', overflow: 'hidden',
                       }}>
-                        <div style={{
-                          height: '100%', width: `${calsPct*100}%`, background: accent,
-                        }}/>
+                        <div style={{ height: '100%', width: `${calsPct*100}%`, background: accent }}/>
                       </div>
                     </>
                   ) : (
-                    <div style={{ fontFamily: 'Sora, sans-serif', fontSize: 12, color: 'rgba(255,255,255,0.35)', fontStyle: 'italic' }}>
-                      No meals logged
-                    </div>
+                    <div style={{ fontSize: 12.5, color: W.t3 }}>No meals logged</div>
                   )}
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   {kg != null && (
-                    <div style={{
-                      fontFamily: 'JetBrains Mono, monospace', fontSize: 13, fontWeight: 600,
-                      color: 'rgba(255,255,255,0.85)', letterSpacing: '-0.02em',
-                    }}>{kg}<span style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', marginLeft: 2 }}>kg</span></div>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 3, justifyContent: 'flex-end' }}>
+                      <span style={T.num(14)}>{kg}</span>
+                      <span style={{ fontSize: 9.5, fontWeight: 600, color: W.t3 }}>KG</span>
+                    </div>
                   )}
                   {d === today && (
-                    <div style={{
-                      fontFamily: 'Sora, sans-serif', fontSize: 8.5, fontWeight: 700,
-                      color: accent, letterSpacing: '0.18em', textTransform: 'uppercase', marginTop: 4,
-                    }}>Today</div>
+                    <div style={{ ...T.label(8.5, accent), marginTop: 5 }}>Today</div>
                   )}
                 </div>
-              </div>
+              </Card>
             );
           })}
         </div>
@@ -213,69 +204,56 @@ function HistorySheet({ open, onClose, log, accent, onJump }) {
 
 // ─── TARGETS SHEET ──────────────────────────────────────────────────────
 const TARGET_BANDS = [
-  { mult: 18, cat: 'Aggressive Gain',  cls: '#7CF8C0' },
-  { mult: 17, cat: 'Lean Bulk',        cls: '#7CF8C0' },
-  { mult: 16, cat: 'Lean Bulk',        cls: '#7CF8C0' },
-  { mult: 15, cat: 'Maintenance',      cls: '#D6FF3D' },
-  { mult: 14, cat: 'Maintenance',      cls: '#D6FF3D' },
-  { mult: 13, cat: 'Recomp',           cls: '#D6FF3D' },
-  { mult: 12, cat: 'Moderate Cut',     cls: '#FFB04A' },
-  { mult: 11, cat: 'Moderate Cut',     cls: '#FFB04A' },
-  { mult: 10, cat: 'Aggressive Cut',   cls: '#FF6B4A' },
+  { mult: 18, cat: 'Aggressive Gain',  cls: '#16EC06' },
+  { mult: 17, cat: 'Lean Bulk',        cls: '#16EC06' },
+  { mult: 16, cat: 'Lean Bulk',        cls: '#16EC06' },
+  { mult: 15, cat: 'Maintenance',      cls: '#FFDE00' },
+  { mult: 14, cat: 'Maintenance',      cls: '#FFDE00' },
+  { mult: 13, cat: 'Recomp',           cls: '#FFDE00' },
+  { mult: 12, cat: 'Moderate Cut',     cls: '#FF8A3D' },
+  { mult: 11, cat: 'Moderate Cut',     cls: '#FF8A3D' },
+  { mult: 10, cat: 'Aggressive Cut',   cls: '#FF0026' },
 ];
 
 function TargetsSheet({ open, onClose, weightKg, accent }) {
   const lbs = weightKg ? weightKg * 2.20462 : null;
   return (
-    <Sheet open={open} onClose={onClose} title="Calorie Targets" height="74vh">
+    <Sheet open={open} onClose={onClose} title="Calorie Targets" height="80vh">
       {!weightKg ? (
-        <div style={{ padding: 32, color: 'rgba(255,255,255,0.4)', fontFamily: 'Sora, sans-serif', fontSize: 13 }}>
+        <div style={{ padding: 32, color: W.t3, fontSize: 13 }}>
           Log your weight to see calorie targets.
         </div>
       ) : (
-        <div style={{ padding: '14px 16px 20px' }}>
-          <div style={{
-            padding: '12px 14px', borderRadius: 12, background: '#0c0c0c', border: '1px solid #161616',
-            marginBottom: 14, display: 'flex', alignItems: 'baseline', gap: 8,
+        <div style={{ padding: '4px 16px 28px' }}>
+          <Card pad={14} style={{
+            marginBottom: 12, display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap',
           }}>
-            <span style={{ fontFamily: 'Sora, sans-serif', fontSize: 10.5, color: 'rgba(255,255,255,0.55)',
-              textTransform: 'uppercase', letterSpacing: '0.16em' }}>Based on</span>
-            <span style={{
-              fontFamily: 'JetBrains Mono, monospace', fontSize: 15, fontWeight: 600, color: '#fff',
-              letterSpacing: '-0.03em',
-            }}>{weightKg} kg</span>
-            <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
-              · {lbs.toFixed(1)} lb
-            </span>
+            <span style={T.label(10.5, W.t2)}>Based on</span>
+            <span style={T.num(17)}>{weightKg} kg</span>
+            <span style={{ fontSize: 12, fontWeight: 500, color: W.t3 }}>· {lbs.toFixed(1)} lb</span>
+          </Card>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {TARGET_BANDS.map(b => {
+              const cals = Math.round(lbs * b.mult);
+              return (
+                <div key={b.mult} style={{
+                  display: 'grid', gridTemplateColumns: '4px 40px 1fr auto', gap: 12,
+                  alignItems: 'center', padding: '11px 14px 11px 10px',
+                  borderRadius: W.radiusSm, background: W.card,
+                }}>
+                  <span style={{
+                    width: 4, height: 26, borderRadius: 2, background: b.cls, display: 'block',
+                  }}/>
+                  <span style={{ ...T.num(17), textAlign: 'center' }}>×{b.mult}</span>
+                  <span style={T.label(10.5, W.t2)}>{b.cat}</span>
+                  <span style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
+                    <span style={T.num(16)}>{cals.toLocaleString()}</span>
+                    <span style={{ fontSize: 9.5, fontWeight: 600, color: W.t3 }}>KCAL</span>
+                  </span>
+                </div>
+              );
+            })}
           </div>
-          {TARGET_BANDS.map(b => {
-            const cals = Math.round(lbs * b.mult);
-            return (
-              <div key={b.mult} style={{
-                display: 'grid', gridTemplateColumns: '36px 1fr auto', gap: 12, alignItems: 'center',
-                padding: '10px 14px', borderRadius: 12, marginBottom: 6,
-                background: '#0a0a0a', border: '1px solid #161616',
-                position: 'relative',
-              }}>
-                <div style={{
-                  position: 'absolute', left: 0, top: 8, bottom: 8, width: 3,
-                  borderRadius: 2, background: b.cls,
-                }}/>
-                <div style={{
-                  fontFamily: 'JetBrains Mono, monospace', fontSize: 18, fontWeight: 600,
-                  color: '#fff', letterSpacing: '-0.04em', textAlign: 'center',
-                }}>×{b.mult}</div>
-                <div style={{
-                  fontFamily: 'Sora, sans-serif', fontSize: 11, fontWeight: 600,
-                  color: 'rgba(255,255,255,0.7)', letterSpacing: '0.1em', textTransform: 'uppercase',
-                }}>{b.cat}</div>
-                <div style={{
-                  fontFamily: 'JetBrains Mono, monospace', fontSize: 16, fontWeight: 600,
-                  color: '#fff', letterSpacing: '-0.03em',
-                }}>{cals.toLocaleString()}<span style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', marginLeft: 3 }}>kcal</span></div>
-              </div>
-            );
-          })}
         </div>
       )}
     </Sheet>
@@ -411,11 +389,9 @@ function ProgressSheet({ open, onClose, log, accent }) {
   };
 
   return (
-    <Sheet open={open} onClose={onClose} title="Weight Progress" height="80vh">
+    <Sheet open={open} onClose={onClose} title="Weight Progress" height="86vh">
       {weightsAsc.length === 0 || phases.length === 0 ? (
-        <div style={{ padding: 32, color: 'rgba(255,255,255,0.4)', fontFamily: 'Sora, sans-serif', fontSize: 13 }}>
-          Log a weight to see progress.
-        </div>
+        <div style={{ padding: 32, color: W.t3, fontSize: 13 }}>Log a weight to see progress.</div>
       ) : (
         <ProgressBody
           weightsAsc={weightsAsc}
@@ -467,9 +443,9 @@ function ProgressBody({ weightsAsc, phases, selectedIdx, onSelectIdx, accent, on
   const actualPctPerWeek = weeksElapsed > 0 ? Math.pow(latest.kg / phase.kg, 1 / weeksElapsed) - 1 : 0;
   const deltaVsIdeal = latest.kg - idealAtLatest;
 
-  const W = 360, H = 220;
+  const CW = 360, CH = 220;
   const padL = 36, padR = 16, padT = 14, padB = 28;
-  const innerW = W - padL - padR, innerH = H - padT - padB;
+  const innerW = CW - padL - padR, innerH = CH - padT - padB;
 
   const xStart = phase.date;
   const nowDate = isCurrent
@@ -504,54 +480,53 @@ function ProgressBody({ weightsAsc, phases, selectedIdx, onSelectIdx, accent, on
   const yTicks = [yMax, (yMin + yMax) / 2, yMin];
   const [ay, am, ad] = phase.date.split('-');
   const onTrackDelta = isCut ? -deltaVsIdeal : deltaVsIdeal;
-  const trackingColor = Math.abs(deltaVsIdeal) < 0.3 ? 'rgba(255,255,255,0.55)'
-    : (onTrackDelta >= 0 ? '#7CF8C0' : '#FFB04A');
+  const trackingColor = Math.abs(deltaVsIdeal) < 0.3 ? W.t2
+    : (onTrackDelta >= 0 ? W.green : W.yellow);
   const phaseDeltaColor = ratePerWeek === 0
-    ? (Math.abs(totalGain) < 0.5 ? '#7CF8C0' : '#FFB04A')
-    : ((isCut ? totalGain <= 0 : totalGain >= 0) ? '#7CF8C0' : '#FF6B4A');
+    ? (Math.abs(totalGain) < 0.5 ? W.green : W.yellow)
+    : ((isCut ? totalGain <= 0 : totalGain >= 0) ? W.green : W.red);
 
   const phaseLabel = isCurrent ? 'Current' : `Phase ${selectedIdx + 1}/${phases.length}`;
   const phaseRangeLabel = isCurrent
     ? `from ${ad}/${am}/${ay}`
     : `${ad}/${am}/${ay} → ${phaseEndDate.split('-').reverse().join('/')}`;
 
+  const ghostBtn = (on, onColor) => ({
+    padding: '12px', borderRadius: W.radiusSm, cursor: 'pointer', border: 'none',
+    background: on ? `${onColor}1F` : 'rgba(255,255,255,0.06)',
+    color: on ? onColor : W.t2,
+    ...T.label(10.5, on ? onColor : W.t2),
+  });
+
   return (
-    <div style={{ padding: '14px 16px 24px' }}>
+    <div style={{ padding: '4px 16px 28px' }}>
       {/* Phase navigator */}
       <div style={{
         display: 'grid', gridTemplateColumns: '36px 1fr 36px', alignItems: 'center', gap: 8,
-        marginBottom: 12, padding: '8px 10px', borderRadius: 12,
-        background: '#0a0a0a', border: '1px solid #161616',
+        marginBottom: 12, padding: '10px', borderRadius: W.radiusSm, background: W.card,
       }}>
         <button onClick={() => onSelectIdx(selectedIdx - 1)} disabled={selectedIdx === 0}
           aria-label="Previous phase" style={{
-            width: 36, height: 32, borderRadius: 8, cursor: selectedIdx === 0 ? 'default' : 'pointer',
-            background: 'transparent', border: '1px solid #1a1a1a',
-            color: selectedIdx === 0 ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.7)',
-            fontFamily: 'JetBrains Mono, monospace', fontSize: 14, padding: 0,
+            width: 36, height: 32, borderRadius: 8, border: 'none',
+            cursor: selectedIdx === 0 ? 'default' : 'pointer',
+            background: 'rgba(255,255,255,0.06)',
+            color: selectedIdx === 0 ? W.t4 : W.t2, fontSize: 14, padding: 0,
           }}>←</button>
-        <div style={{ textAlign: 'center', lineHeight: 1.25 }}>
-          <div style={{
-            fontFamily: 'Sora, sans-serif', fontSize: 10, fontWeight: 700,
-            color: isCurrent ? accent : 'rgba(255,255,255,0.55)',
-            letterSpacing: '0.16em', textTransform: 'uppercase',
-          }}>{phaseLabel} · {goal.label}</div>
-          <div style={{
-            fontFamily: 'JetBrains Mono, monospace', fontSize: 11,
-            color: 'rgba(255,255,255,0.75)', marginTop: 2,
-          }}>{phaseRangeLabel}</div>
+        <div style={{ textAlign: 'center', lineHeight: 1.3 }}>
+          <div style={T.label(10, isCurrent ? accent : W.t2)}>{phaseLabel} · {goal.label}</div>
+          <div style={{ fontSize: 11.5, fontWeight: 500, color: W.t2, marginTop: 3 }}>{phaseRangeLabel}</div>
         </div>
         <button onClick={() => onSelectIdx(selectedIdx + 1)} disabled={isCurrent}
           aria-label="Next phase" style={{
-            width: 36, height: 32, borderRadius: 8, cursor: isCurrent ? 'default' : 'pointer',
-            background: 'transparent', border: '1px solid #1a1a1a',
-            color: isCurrent ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.7)',
-            fontFamily: 'JetBrains Mono, monospace', fontSize: 14, padding: 0,
+            width: 36, height: 32, borderRadius: 8, border: 'none',
+            cursor: isCurrent ? 'default' : 'pointer',
+            background: 'rgba(255,255,255,0.06)',
+            color: isCurrent ? W.t4 : W.t2, fontSize: 14, padding: 0,
           }}>→</button>
       </div>
 
       {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 12 }}>
         <ProgressStat label="Latest"  value={latest.kg.toFixed(1)} unit="kg"/>
         <ProgressStat label="Phase Δ" value={`${totalGain >= 0 ? '+' : ''}${totalGain.toFixed(1)}`} unit="kg"
           color={phaseDeltaColor}/>
@@ -559,77 +534,64 @@ function ProgressBody({ weightsAsc, phases, selectedIdx, onSelectIdx, accent, on
       </div>
 
       {/* Chart */}
-      <div style={{ background: '#0a0a0a', border: '1px solid #161616', borderRadius: 14, padding: 8 }}>
-        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none"
+      <div style={{ background: W.card, borderRadius: W.radius, padding: 10 }}>
+        <svg viewBox={`0 0 ${CW} ${CH}`} preserveAspectRatio="none"
              style={{ width: '100%', height: 220, display: 'block' }}>
-          <line x1={padL} y1={padT} x2={padL} y2={H - padB} stroke="#1d1d1d" strokeWidth="1"/>
-          <line x1={padL} y1={H - padB} x2={W - padR} y2={H - padB} stroke="#1d1d1d" strokeWidth="1"/>
-          <line x1={padL} y1={padT + innerH/2} x2={W - padR} y2={padT + innerH/2}
-                stroke="#141414" strokeWidth="1" strokeDasharray="2,4"/>
-          <text x={padL - 6} y={padT + 4} fill="rgba(255,255,255,0.35)" fontSize="9"
-                fontFamily="JetBrains Mono, monospace" textAnchor="end">{yTicks[0].toFixed(1)}</text>
-          <text x={padL - 6} y={padT + innerH/2 + 3} fill="rgba(255,255,255,0.35)" fontSize="9"
-                fontFamily="JetBrains Mono, monospace" textAnchor="end">{yTicks[1].toFixed(1)}</text>
-          <text x={padL - 6} y={H - padB + 3} fill="rgba(255,255,255,0.35)" fontSize="9"
-                fontFamily="JetBrains Mono, monospace" textAnchor="end">{yTicks[2].toFixed(1)}</text>
-          <text x={padL} y={H - padB + 16} fill="rgba(255,255,255,0.35)" fontSize="9"
-                fontFamily="JetBrains Mono, monospace" textAnchor="start">{xStart.slice(5)}</text>
-          <text x={W - padR} y={H - padB + 16} fill="rgba(255,255,255,0.35)" fontSize="9"
-                fontFamily="JetBrains Mono, monospace" textAnchor="end">{xEnd.slice(5)}</text>
+          <line x1={padL} y1={padT} x2={padL} y2={CH - padB} stroke="rgba(255,255,255,0.10)" strokeWidth="1"/>
+          <line x1={padL} y1={CH - padB} x2={CW - padR} y2={CH - padB} stroke="rgba(255,255,255,0.10)" strokeWidth="1"/>
+          <line x1={padL} y1={padT + innerH/2} x2={CW - padR} y2={padT + innerH/2}
+                stroke="rgba(255,255,255,0.06)" strokeWidth="1" strokeDasharray="2,4"/>
+          <text x={padL - 6} y={padT + 4} fill={W.t3} fontSize="9" textAnchor="end">{yTicks[0].toFixed(1)}</text>
+          <text x={padL - 6} y={padT + innerH/2 + 3} fill={W.t3} fontSize="9" textAnchor="end">{yTicks[1].toFixed(1)}</text>
+          <text x={padL - 6} y={CH - padB + 3} fill={W.t3} fontSize="9" textAnchor="end">{yTicks[2].toFixed(1)}</text>
+          <text x={padL} y={CH - padB + 16} fill={W.t3} fontSize="9" textAnchor="start">{xStart.slice(5)}</text>
+          <text x={CW - padR} y={CH - padB + 16} fill={W.t3} fontSize="9" textAnchor="end">{xEnd.slice(5)}</text>
           <line x1={idealX1.toFixed(1)} y1={idealY1.toFixed(1)}
                 x2={idealX2.toFixed(1)} y2={idealY2.toFixed(1)}
-                stroke="#7AB7FF" strokeWidth="1.5" strokeDasharray="4,3"/>
+                stroke={W.sleep} strokeWidth="1.5" strokeDasharray="4,3"/>
           {/* now / forecast divider (current phase only) */}
           {isCurrent && (<>
-            <line x1={nowX.toFixed(1)} y1={padT} x2={nowX.toFixed(1)} y2={H - padB}
-                  stroke="rgba(255,255,255,0.12)" strokeWidth="1" strokeDasharray="2,3"/>
-            <text x={nowX.toFixed(1)} y={padT - 3} fill="rgba(255,255,255,0.4)" fontSize="8"
-                  fontFamily="JetBrains Mono, monospace" textAnchor="middle">NOW</text>
+            <line x1={nowX.toFixed(1)} y1={padT} x2={nowX.toFixed(1)} y2={CH - padB}
+                  stroke="rgba(255,255,255,0.14)" strokeWidth="1" strokeDasharray="2,3"/>
+            <text x={nowX.toFixed(1)} y={padT - 3} fill={W.t3} fontSize="8" textAnchor="middle">NOW</text>
           </>)}
-          {actualPts  && <polyline points={actualPts}  fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="1"/>}
-          {rollingPts && <polyline points={rollingPts} fill="none" stroke={accent} strokeWidth="2"/>}
+          {actualPts  && <polyline points={actualPts}  fill="none" stroke="rgba(255,255,255,0.30)" strokeWidth="1"/>}
+          {rollingPts && <polyline points={rollingPts} fill="none" stroke={accent} strokeWidth="2.5"/>}
         </svg>
       </div>
 
       {/* Legend */}
       <div style={{
         display: 'flex', justifyContent: 'center', gap: 14, marginTop: 10, flexWrap: 'wrap',
-        fontFamily: 'Sora, sans-serif', fontSize: 9.5, color: 'rgba(255,255,255,0.55)',
-        letterSpacing: '0.12em', textTransform: 'uppercase',
+        ...T.label(9.5, W.t2),
       }}>
-        <ProgressLegend swatch="rgba(255,255,255,0.35)" label="Daily"/>
-        <ProgressLegend swatch={accent}                  label="4-wk Avg"/>
-        <ProgressLegend swatch="#7AB7FF"                 label={`Ideal ${goal.blurb}`} dashed/>
+        <ProgressLegend swatch="rgba(255,255,255,0.30)" label="Daily"/>
+        <ProgressLegend swatch={accent}                 label="4-wk Avg"/>
+        <ProgressLegend swatch={W.sleep}                label={`Ideal ${goal.blurb}`} dashed/>
       </div>
 
       {/* Phase info */}
       <div style={{
-        marginTop: 14, padding: '10px 12px', borderRadius: 12,
-        background: '#0a0a0a', border: '1px solid #161616',
-        fontFamily: 'Sora, sans-serif', fontSize: 11.5, color: 'rgba(255,255,255,0.65)',
-        display: 'flex', flexDirection: 'column', gap: 6,
+        marginTop: 12, padding: '12px 14px', borderRadius: W.radiusSm, background: W.card,
+        fontSize: 12, color: W.t2, display: 'flex', flexDirection: 'column', gap: 7,
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-          <span>Started <span style={{ fontFamily: 'JetBrains Mono, monospace', color: '#fff' }}>{ad}/{am}/{ay}</span> @ <span style={{ fontFamily: 'JetBrains Mono, monospace', color: '#fff' }}>{phase.kg.toFixed(1)}kg</span></span>
+          <span>Started <b style={{ color: W.text, fontWeight: 600 }}>{ad}/{am}/{ay}</b> @ <b style={{ color: W.text, fontWeight: 600 }}>{phase.kg.toFixed(1)}kg</b></span>
           <span style={{ whiteSpace: 'nowrap' }}>vs ideal:&nbsp;
-            <span style={{ fontFamily: 'JetBrains Mono, monospace', color: trackingColor, fontWeight: 600 }}>
+            <b style={{ color: trackingColor, fontWeight: 700 }}>
               {deltaVsIdeal >= 0 ? '+' : ''}{deltaVsIdeal.toFixed(2)}kg
-            </span>
+            </b>
           </span>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, color: 'rgba(255,255,255,0.45)', fontSize: 11 }}>
-          <span>{goal.label} · <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>{goal.blurb}</span></span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, color: W.t3, fontSize: 11.5 }}>
+          <span>{goal.label} · {goal.blurb}</span>
           {isCurrent ? (
             <span style={{ whiteSpace: 'nowrap' }}>In {Math.round(PROGRESS_FORECAST_DAYS / 7)} wks ideal:&nbsp;
-              <span style={{ fontFamily: 'JetBrains Mono, monospace', color: 'rgba(255,255,255,0.75)' }}>
-                {forecastKg.toFixed(1)}kg
-              </span>
+              <b style={{ color: W.t2, fontWeight: 600 }}>{forecastKg.toFixed(1)}kg</b>
             </span>
           ) : (
             <span style={{ whiteSpace: 'nowrap' }}>Ended:&nbsp;
-              <span style={{ fontFamily: 'JetBrains Mono, monospace', color: 'rgba(255,255,255,0.75)' }}>
-                {latest.kg.toFixed(1)}kg
-              </span>
+              <b style={{ color: W.t2, fontWeight: 600 }}>{latest.kg.toFixed(1)}kg</b>
             </span>
           )}
         </div>
@@ -637,27 +599,21 @@ function ProgressBody({ weightsAsc, phases, selectedIdx, onSelectIdx, accent, on
 
       {/* Goal picker */}
       {pickingGoal && (
-        <div style={{
-          marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6,
-        }}>
+        <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6 }}>
           {PROGRESS_GOALS.map(g => {
             const active = g.id === goal.id;
             return (
               <button key={g.id}
                 onClick={() => { onSetGoal(g.id); setPickingGoal(false); }}
                 style={{
-                  padding: '10px 8px', borderRadius: 10, cursor: 'pointer',
-                  background: active ? '#15201a' : '#0a0a0a',
-                  border: active ? `1px solid ${accent}` : '1px solid #1a1a1a',
-                  color: active ? accent : 'rgba(255,255,255,0.75)',
-                  fontFamily: 'Sora, sans-serif', fontSize: 11, fontWeight: 600,
-                  display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2,
-                  textAlign: 'left',
+                  padding: '11px 10px', borderRadius: W.radiusSm, cursor: 'pointer', border: 'none',
+                  background: active ? `${accent}26` : 'rgba(255,255,255,0.06)',
+                  color: active ? accent : W.t2,
+                  display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3,
+                  textAlign: 'left', fontSize: 12, fontWeight: 600,
                 }}>
                 <span>{g.label}</span>
-                <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, opacity: 0.7 }}>
-                  {g.blurb}
-                </span>
+                <span style={{ fontSize: 10.5, opacity: 0.75, fontWeight: 500 }}>{g.blurb}</span>
               </button>
             );
           })}
@@ -666,14 +622,9 @@ function ProgressBody({ weightsAsc, phases, selectedIdx, onSelectIdx, accent, on
 
       {/* Actions */}
       <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        <button onClick={() => setPickingGoal(p => !p)} style={{
-          padding: '11px',
-          borderRadius: 12, border: `1px ${pickingGoal ? 'solid' : 'dashed'} ${pickingGoal ? accent : '#2a2a2a'}`,
-          background: '#0a0a0a',
-          color: pickingGoal ? accent : 'rgba(255,255,255,0.6)', cursor: 'pointer',
-          fontFamily: 'Sora, sans-serif', fontSize: 11, fontWeight: 700,
-          letterSpacing: '0.16em', textTransform: 'uppercase',
-        }}>{pickingGoal ? 'Done' : 'Change goal'}</button>
+        <button onClick={() => setPickingGoal(p => !p)} style={ghostBtn(pickingGoal, accent)}>
+          {pickingGoal ? 'Done' : 'Change goal'}
+        </button>
         <button
           onClick={() => {
             if (!confirmingNew) { setConfirmingNew(true); return; }
@@ -681,15 +632,9 @@ function ProgressBody({ weightsAsc, phases, selectedIdx, onSelectIdx, accent, on
             onNewPhase();
           }}
           onBlur={() => setConfirmingNew(false)}
-          style={{
-            padding: '11px',
-            borderRadius: 12,
-            border: confirmingNew ? `1px solid ${accent}` : '1px dashed #2a2a2a',
-            background: confirmingNew ? '#15201a' : '#0a0a0a',
-            color: confirmingNew ? accent : 'rgba(255,255,255,0.6)', cursor: 'pointer',
-            fontFamily: 'Sora, sans-serif', fontSize: 11, fontWeight: 700,
-            letterSpacing: '0.16em', textTransform: 'uppercase',
-          }}>{confirmingNew ? 'Tap to confirm' : 'New phase from latest'}</button>
+          style={ghostBtn(confirmingNew, accent)}>
+          {confirmingNew ? 'Tap to confirm' : 'New phase from latest'}
+        </button>
       </div>
 
       {/* Discard (only when there's history to fall back to) */}
@@ -702,12 +647,10 @@ function ProgressBody({ weightsAsc, phases, selectedIdx, onSelectIdx, accent, on
           }}
           onBlur={() => setConfirmingDelete(false)}
           style={{
-            marginTop: 8, width: '100%', padding: '10px',
-            borderRadius: 12, background: 'transparent',
-            border: confirmingDelete ? '1px solid #FF6B4A' : '1px dashed #1f1f1f',
-            color: confirmingDelete ? '#FF6B4A' : 'rgba(255,255,255,0.4)', cursor: 'pointer',
-            fontFamily: 'Sora, sans-serif', fontSize: 10, fontWeight: 700,
-            letterSpacing: '0.18em', textTransform: 'uppercase',
+            marginTop: 8, width: '100%', padding: '11px', borderRadius: W.radiusSm, border: 'none',
+            background: confirmingDelete ? `${W.red}1F` : 'transparent',
+            color: confirmingDelete ? W.red : W.t3, cursor: 'pointer',
+            ...T.label(10, confirmingDelete ? W.red : W.t3),
           }}>
           {confirmingDelete
             ? 'Tap to confirm discard'
@@ -720,20 +663,11 @@ function ProgressBody({ weightsAsc, phases, selectedIdx, onSelectIdx, accent, on
 
 function ProgressStat({ label, value, unit, color }) {
   return (
-    <div style={{
-      background: '#0c0c0c', border: '1px solid #161616', borderRadius: 12,
-      padding: '10px 8px', textAlign: 'center',
-    }}>
-      <div style={{
-        fontFamily: 'Sora, sans-serif', fontSize: 9, fontWeight: 700,
-        color: 'rgba(255,255,255,0.4)', letterSpacing: '0.18em', textTransform: 'uppercase',
-      }}>{label}</div>
-      <div style={{
-        fontFamily: 'JetBrains Mono, monospace', fontSize: 18, fontWeight: 600,
-        color: color || '#fff', letterSpacing: '-0.04em', marginTop: 4,
-      }}>
-        {value}
-        {unit && <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginLeft: 2 }}>{unit}</span>}
+    <div style={{ background: W.card, borderRadius: W.radiusSm, padding: '12px 8px', textAlign: 'center' }}>
+      <div style={T.label(9, W.t3)}>{label}</div>
+      <div style={{ marginTop: 6, display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 2 }}>
+        <span style={T.num(19, color || W.text)}>{value}</span>
+        {unit && <span style={{ fontSize: 10, fontWeight: 600, color: W.t3 }}>{unit}</span>}
       </div>
     </div>
   );
@@ -751,4 +685,4 @@ function ProgressLegend({ swatch, label, dashed }) {
   );
 }
 
-Object.assign(window, { Sheet, SectionHeader, Dock, HistorySheet, TargetsSheet, ProgressSheet, TARGET_BANDS });
+Object.assign(window, { Sheet, Dock, HistorySheet, TargetsSheet, ProgressSheet, TARGET_BANDS });
