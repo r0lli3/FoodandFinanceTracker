@@ -21,6 +21,8 @@ window.SECTIONS = [
     meals: [
       { id: 'beef-tenderloin-b03', name: 'Beef Tenderloin Teriyaki, Sweet Mash', sub: 'Basics', protein: 26.5, carbs: 36.4, fat: 7.5, fiber: 5.4, cals: 319 },
       { id: 'bbq-beef-mince-b01', name: 'BBQ Beef Mince, White Mash', sub: 'Basics', protein: 25.9, carbs: 42.7, fat: 6.5, fiber: 5.1, cals: 334 },
+      { id: 'chicky-chic-set', name: 'Chicky Chic Set', sub: '1 set', protein: 41, carbs: 75, fat: 44, fiber: 0, cals: 850 },
+      { id: 'mcnuggets-10-set', name: 'McNuggets 10 Set', sub: '1 set', protein: 20, carbs: 60, fat: 36, fiber: 0, cals: 640 },
       { id: 'meiji-dinner', name: 'High Protein Drink', sub: 'Meiji', protein: 28.0, carbs: 10.0, fat: 2.0, fiber: 0.0, cals: 170 },
     ],
   },
