@@ -66,7 +66,7 @@ function Dock({ onTargets, onHistory, onProgress, onToday }) {
     <div style={{
       position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 20,
       display: 'flex', alignItems: 'center', gap: 8,
-      padding: '22px 12px calc(10px + env(safe-area-inset-bottom))',
+      padding: `22px 12px ${W.dockPadBottom}`,
       background: `linear-gradient(to top, ${W.bg} 42%, rgba(14,18,22,0))`,
       pointerEvents: 'none',
     }}>

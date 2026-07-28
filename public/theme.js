@@ -33,6 +33,19 @@ window.W = {
   radiusSm: 12,
 };
 
+// The dock floats over the scroll area, so the spacer at the end of the
+// content has to mirror the dock's height exactly. They were two independent
+// magic numbers; deriving both from one value stops them drifting.
+//
+// Below the 56px pill we want ~28px of breathing room on a device with a home
+// indicator — Whoop leaves about that much, and the pill is allowed to sit
+// inside the safe-area band since the indicator is only an overlay. Adding a
+// flat 10px *on top of* the full 34px inset (the old value) gave 44px, which
+// is what read as dead space at the bottom of the screen.
+window.W.dockPadBottom = 'max(10px, calc(env(safe-area-inset-bottom) - 6px))';
+// 56 pill + 12 gap above it + whatever sits below it.
+window.W.dockClearance = `calc(68px + ${window.W.dockPadBottom})`;
+
 // Whoop's recovery scale: green when you're on it, yellow mid, red when you're not.
 window.scaleColor = (pct) => {
   if (pct >= 0.85) return W.green;
