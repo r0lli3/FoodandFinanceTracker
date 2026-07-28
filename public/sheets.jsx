@@ -39,6 +39,9 @@ function Sheet({ open, onClose, title, children, height = '82vh' }) {
         <div style={{
           flex: 1, minHeight: 0, overflowY: 'auto',
           WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain',
+          // Sheets are bottom-anchored, so in a PWA their last row lands under
+          // the home indicator. A browser (inset 0) is unaffected.
+          paddingBottom: 'env(safe-area-inset-bottom)',
         }}>
           {children}
         </div>

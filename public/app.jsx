@@ -333,7 +333,11 @@ function SunIcon() {
 function TopBar({ dateLabel, onPrev, onNext, canNext, streak }) {
   return (
     <div style={{
-      padding: 'max(env(safe-area-inset-top), 12px) 16px 0',
+      // Additive, not max(). The top inset IS the status bar, so max() spends
+      // the whole allowance clearing it and leaves the row butted against the
+      // clock in a standalone PWA — while a browser (inset 0) gets a 12px
+      // margin. Adding gives real breathing room in both.
+      padding: 'calc(env(safe-area-inset-top) + 14px) 16px 0',
       display: 'flex', alignItems: 'center', gap: 8,
     }}>
       {/* streak — the matching spacer on the right keeps the nav centered */}
