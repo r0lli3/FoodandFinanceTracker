@@ -42,7 +42,7 @@ const ensureSeed = () => ({}); // server is source of truth — no seeding
 
 async function fetchHistorySummary() {
   const res = await fetch('/api/history/summary');
-  const { logs, weights, targets } = await res.json();
+  const { logs, weights, targets, targetHistory } = await res.json();
   const log = {};
   for (const row of logs) {
     if (!log[row.date]) log[row.date] = {};
@@ -52,13 +52,13 @@ async function fetchHistorySummary() {
     if (!log[w.date]) log[w.date] = {};
     log[w.date]._kg = w.kg;
   }
-  return { log, targets: targets || null };
+  return { log, targets: targets || null, targetHistory: targetHistory || [] };
 }
-async function saveTargetsAPI(targets) {
+async function saveTargetsAPI(targets, effectiveFrom) {
   return fetch('/api/targets', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(targets),
+    body: JSON.stringify({ ...targets, effective_from: effectiveFrom }),
   });
 }
 async function saveCountAPI(date, mealId, count) {
@@ -111,9 +111,23 @@ const applyTargets = (next) => {
   try { localStorage.setItem(TARGETS_KEY, JSON.stringify(TARGETS)); } catch (_) {}
 };
 
-const saveTargets = (next) => {
+const applyTargetHistory = (rows) => {
+  window.TARGET_HISTORY = (rows || [])
+    .filter(r => r && r.effective_from)
+    .sort((a, b) => b.effective_from.localeCompare(a.effective_from));
+};
+
+// New targets take effect from `from` (today unless told otherwise) and are
+// appended to the history rather than overwriting what came before. Saving
+// twice in one day replaces that day's entry — server does the same.
+const saveTargets = (next, from) => {
+  const date = from || todayStr();
   applyTargets(next);
-  saveTargetsAPI(TARGETS).catch(e => console.error('Save targets failed:', e));
+  applyTargetHistory([
+    { ...TARGETS, effective_from: date },
+    ...TARGET_HISTORY.filter(r => r.effective_from !== date),
+  ]);
+  saveTargetsAPI(TARGETS, date).catch(e => console.error('Save targets failed:', e));
 };
 
 // Consecutive days with anything logged, ending today (or yesterday if today
@@ -623,5 +637,5 @@ Object.assign(window, { Ring, RingStat, Chevron, useStoredState, useMediaQuery,
   Card, CardHead, MonitorCard, OutlookBanner,
   TopBar, MealRow, Stepper, WeightCard,
   todayStr, offsetDate, dayName, dayNum, monthShort, allMeals, computeTotals, computeStreak,
-  deriveTargets, saveTargets, applyTargets,
+  deriveTargets, saveTargets, applyTargets, applyTargetHistory,
   loadLog, saveLog, ensureSeed, ACCENT_OPTIONS, TWEAK_DEFAULTS });

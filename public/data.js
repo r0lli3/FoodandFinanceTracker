@@ -42,6 +42,23 @@ try {
   }
 } catch (_) {}
 
+// Every target change ever made, newest first, each tagged with the day it
+// took effect. Filled in from the server on load; TARGETS stays the *current*
+// targets (the newest entry) because that's what setting new targets works off.
+window.TARGET_HISTORY = [];
+
+// The targets a given day should be scored against: the newest entry that was
+// already in effect on that day. Without this, past days get measured against
+// whatever the targets happen to be today.
+window.targetsForDate = (dateStr) => {
+  const h = window.TARGET_HISTORY;
+  if (!h.length) return window.TARGETS;
+  for (const row of h) {                  // newest first
+    if (row.effective_from <= dateStr) return row;
+  }
+  return h[h.length - 1];                 // predates all history — use the oldest
+};
+
 // Seed history (local prototype only — keeps the History sheet from being empty)
 window.SEED_HISTORY = {
   // dateStr: { mealId: count, _kg?: number }
