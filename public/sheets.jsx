@@ -212,7 +212,7 @@ const TARGET_BANDS = [
   { mult: 10, cat: 'Aggressive Cut',   cls: '#FF0026' },
 ];
 
-function TargetsSheet({ open, onClose, weightKg, accent, onApply }) {
+function TargetsSheet({ open, onClose, weightKg, accent, onApply, onChanged }) {
   const [pending, setPending] = useState2(null);
   // Never leave a half-finished confirmation behind when the sheet closes.
   useEffect2(() => { if (!open) setPending(null); }, [open]);
@@ -278,7 +278,7 @@ function TargetsSheet({ open, onClose, weightKg, accent, onApply }) {
               </div>
             </>
           )}
-          <TargetHistoryList accent={accent}/>
+          <TargetHistoryList accent={accent} onChanged={onChanged}/>
         </div>
       )}
     </Sheet>
@@ -291,9 +291,22 @@ const historyDate = (s) =>
     day: 'numeric', month: 'short', year: 'numeric',
   });
 
-function TargetHistoryList({ accent }) {
+function TargetHistoryList({ accent, onChanged }) {
   const rows = window.TARGET_HISTORY || [];
+  const [confirming, setConfirming] = useState2(null);
+  const [error, setError] = useState2(null);
   if (!rows.length) return null;
+
+  // Mirrors the server's guard — with one entry left there's nothing to fall
+  // back to, so the button isn't offered rather than being offered and refused.
+  const canDelete = rows.length > 1;
+
+  const remove = (date) => {
+    setError(null);
+    deleteTargetEntry(date)
+      .then(() => { setConfirming(null); onChanged && onChanged(); })
+      .catch(e => { setConfirming(null); setError(e.message); });
+  };
 
   return (
     <div style={{ marginTop: 24 }}>
@@ -306,9 +319,12 @@ function TargetHistoryList({ accent }) {
           const prev = rows[i + 1] || null;
           const delta = prev ? Math.round(r.cals - prev.cals) : null;
           const deltaColor = !delta ? W.t3 : delta > 0 ? W.green : W.amber;
+          const isConfirming = confirming === r.effective_from;
           return (
             <div key={r.effective_from} style={{
-              padding: '12px 14px', borderRadius: W.radiusSm, background: W.card,
+              padding: '12px 14px', borderRadius: W.radiusSm,
+              background: isConfirming ? `${W.red}14` : W.card,
+              transition: 'background 180ms',
             }}>
               <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
@@ -335,18 +351,32 @@ function TargetHistoryList({ accent }) {
                 </span>
               </div>
               <div style={{
-                display: 'flex', gap: 12, marginTop: 6,
+                display: 'flex', alignItems: 'center', gap: 12, marginTop: 6,
                 fontSize: 11.5, fontWeight: 500, color: W.t2,
               }}>
                 <span><span style={{ color: W.t4 }}>P</span> {Math.round(r.protein)}g</span>
                 <span><span style={{ color: W.t4 }}>C</span> {Math.round(r.carbs)}g</span>
                 <span><span style={{ color: W.t4 }}>F</span> {Math.round(r.fat)}g</span>
                 {!prev && <span style={{ color: W.t4 }}>· first recorded</span>}
+                <span style={{ flex: 1 }}/>
+                {canDelete && (
+                  <button
+                    onClick={() => isConfirming ? remove(r.effective_from) : setConfirming(r.effective_from)}
+                    onBlur={() => setConfirming(c => c === r.effective_from ? null : c)}
+                    style={{
+                      border: 'none', cursor: 'pointer', borderRadius: 6, padding: '4px 8px',
+                      background: isConfirming ? `${W.red}26` : 'rgba(255,255,255,0.06)',
+                      ...T.label(9, isConfirming ? W.red : W.t3), whiteSpace: 'nowrap',
+                    }}>{isConfirming ? 'Tap to confirm' : 'Delete'}</button>
+                )}
               </div>
             </div>
           );
         })}
       </div>
+      {error && (
+        <div style={{ fontSize: 11.5, color: W.red, padding: '10px 2px 0' }}>{error}</div>
+      )}
       <div style={{ fontSize: 11, color: W.t4, padding: '10px 2px 0', lineHeight: 1.4 }}>
         Each day is measured against the targets in force on that day.
       </div>

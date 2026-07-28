@@ -339,7 +339,8 @@ function App() {
         log={log} accent={accent} onJump={setCurrentDate}/>
       <TargetsSheet open={targetsOpen} onClose={() => setTargetsOpen(false)}
         weightKg={latestWeight} accent={accent}
-        onApply={(next) => { saveTargets(next); bumpTargets(v => v + 1); }}/>
+        onApply={(next) => { saveTargets(next); bumpTargets(v => v + 1); }}
+        onChanged={() => bumpTargets(v => v + 1)}/>
       <ProgressSheet open={progressOpen} onClose={() => setProgressOpen(false)}
         log={log} accent={accent}/>
 
