@@ -145,66 +145,6 @@ function outlookHeadline(totals) {
   return `${remaining} kcal left · protein ${pPct}%`;
 }
 
-// ─── TEMPORARY viewport diagnostic ──────────────────────────────────────
-// Remove once the PWA layout issue is settled. Reports what the device
-// actually says, since env()/vh behave differently in a standalone PWA.
-function DebugViewport() {
-  const [m, setM] = uS(null);
-  uE(() => {
-    const read = () => {
-      const probe = document.createElement('div');
-      probe.style.cssText = 'position:absolute;visibility:hidden;'
-        + 'top:env(safe-area-inset-top);bottom:env(safe-area-inset-bottom);'
-        + 'height:100vh;width:100dvh';
-      document.body.appendChild(probe);
-      const cs = getComputedStyle(probe);
-      const insetTop = cs.top, insetBottom = cs.bottom;
-      const vh100 = probe.getBoundingClientRect().height;
-      probe.remove();
-
-      const rootEl = document.getElementById('app-root');
-      const root = rootEl ? rootEl.getBoundingClientRect() : { top: 0, bottom: 0 };
-      const dock = [...document.querySelectorAll('div')]
-        .find(d => getComputedStyle(d).position === 'absolute' && (d.textContent || '').includes('History'));
-      const dr = dock ? dock.getBoundingClientRect() : null;
-      const pill = dock && dock.firstElementChild
-        ? dock.firstElementChild.getBoundingClientRect() : null;
-
-      setM({
-        standalone: String(window.navigator.standalone),
-        innerH: window.innerHeight,
-        screenH: window.screen.height,
-        docClientH: document.documentElement.clientHeight,
-        visualVH: window.visualViewport ? Math.round(window.visualViewport.height) : 'n/a',
-        vh100: Math.round(vh100),
-        insetTop, insetBottom,
-        rootTop: Math.round(root.top), rootBottom: Math.round(root.bottom),
-        dockBottom: dr ? Math.round(dr.bottom) : 'n/a',
-        pillBottom: pill ? Math.round(pill.bottom) : 'n/a',
-      });
-    };
-    read();
-    window.addEventListener('resize', read);
-    return () => window.removeEventListener('resize', read);
-  }, []);
-
-  if (!m) return null;
-  return (
-    <div style={{
-      margin: '0 16px 12px', padding: 12, borderRadius: 12,
-      background: '#3A1D1D', border: '1px solid #6B2E2E',
-      fontSize: 11.5, lineHeight: 1.55, color: '#fff',
-      fontFamily: 'ui-monospace, monospace',
-    }}>
-      <div style={{ fontWeight: 700, marginBottom: 6 }}>VIEWPORT DEBUG — screenshot this</div>
-      {Object.entries(m).map(([k, v]) => (
-        <div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-          <span style={{ opacity: 0.65 }}>{k}</span><span>{String(v)}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 // ─── app ────────────────────────────────────────────────────────────────
 function App() {
@@ -326,7 +266,6 @@ function App() {
       />
 
       <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
-        <DebugViewport/>
         <RingTrio totals={totals} units={units} onToggle={toggleUnits}/>
 
         <Monitors totals={totals} onTargets={() => setTargetsOpen(true)}/>
