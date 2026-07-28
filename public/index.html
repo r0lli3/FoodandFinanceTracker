@@ -5,7 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 <meta name="theme-color" content="#0E1216">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<!-- NOT black-translucent. Measured on device: with translucent, iOS gives the
+     standalone webview a 793pt viewport pinned to the TOP of an 852pt screen,
+     so the bottom 59pt sits outside the webview and cannot be painted — that
+     was the dead band. Opaque puts the same 793pt webview below the status bar
+     instead, flush to the bottom of the screen. -->
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <title>Food Tracker</title>
 <link rel="icon" type="image/svg+xml" href="/icon.svg" />
 <link rel="apple-touch-icon" href="/icon.svg" />
@@ -25,32 +30,15 @@
     overflow: hidden;
     font-variant-numeric: tabular-nums;
   }
-  /* Height comes from --app-h, set below. Do NOT use inset:0 or dvh here:
-     in an iOS standalone PWA both resolve to the status-bar-shortened
-     viewport (measured: 793 on an 852 screen), leaving a dead band at the
-     bottom. See the script under this block. */
-  #app-root {
-    position: fixed; top: 0; left: 0;
-    width: 100%; height: var(--app-h, 100dvh);
-    overflow: hidden;
-  }
+  /* inset:0 == the webview, whatever iOS decides that is. With an opaque
+     status bar the webview already sits below it and runs to the bottom of
+     the screen, so this is exactly right — no vh/dvh guessing needed. */
+  #app-root { position: fixed; inset: 0; overflow: hidden; }
   button { font-family: inherit; }
   input[type=number] { -moz-appearance: textfield; }
   input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   ::-webkit-scrollbar { display: none; }
 </style>
-<script>
-  // iOS standalone + black-translucent gives the webview a viewport shorter
-  // than the screen by the status-bar inset, while still reporting that inset
-  // through env(). Measured on device: innerHeight 793, 100vh 852,
-  // safe-area-inset-top 59 — so dvh (and inset:0) stop 59px short of the
-  // bottom of the screen. vh resolves to the full screen there.
-  //
-  // In a normal browser the opposite is true: vh is the *large* viewport and
-  // would run under the URL bar, so dvh is the correct choice. Pick per mode.
-  document.documentElement.style.setProperty(
-    '--app-h', window.navigator.standalone ? '100vh' : '100dvh');
-</script>
 </head>
 <body>
 
