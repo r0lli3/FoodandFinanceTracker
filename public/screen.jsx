@@ -3,7 +3,8 @@ const { useState: uS, useEffect: uE, useMemo: uM, useRef: uR } = React;
 
 // ─── hero: three rings ──────────────────────────────────────────────────
 // `units` is 'pct' (83%) or 'abs' (115 over / 155g).
-function RingTrio({ totals, units, onToggle }) {
+// `targets` are the viewed day's, which are not today's once targets change.
+function RingTrio({ totals, targets, units, onToggle }) {
   const abs = units === 'abs';
   const ring = (label, value, target, color, unit) => {
     const pct = target ? value / target : 0;
@@ -15,9 +16,9 @@ function RingTrio({ totals, units, onToggle }) {
     };
   };
   const rings = [
-    ring('Protein', totals.protein, TARGETS.protein, scaleColor(totals.protein / TARGETS.protein), 'g'),
-    ring('Carbs',   totals.carbs,   TARGETS.carbs,   W.blue,  'g'),
-    ring('Fat',     totals.fat,     TARGETS.fat,     W.amber, 'g'),
+    ring('Protein', totals.protein, targets.protein, scaleColor(totals.protein / targets.protein), 'g'),
+    ring('Carbs',   totals.carbs,   targets.carbs,   W.blue,  'g'),
+    ring('Fat',     totals.fat,     targets.fat,     W.amber, 'g'),
   ];
 
   // gap:0 — the flex columns are equal width, so shrinking the ring inside
@@ -33,12 +34,12 @@ function RingTrio({ totals, units, onToggle }) {
 }
 
 // ─── monitors ───────────────────────────────────────────────────────────
-function Monitors({ totals, onTargets }) {
+function Monitors({ totals, targets, onTargets }) {
   // Fiber is tracked but no longer surfaced, so it isn't counted here either.
   const macros = [
-    ['protein', TARGETS.protein],
-    ['carbs',   TARGETS.carbs],
-    ['fat',     TARGETS.fat],
+    ['protein', targets.protein],
+    ['carbs',   targets.carbs],
+    ['fat',     targets.fat],
   ];
   const hit = macros.filter(([k, t]) => totals[k] >= t * 0.85).length;
   const all = macros.length;
@@ -46,7 +47,7 @@ function Monitors({ totals, onTargets }) {
   const macroColor = hit === all ? W.green : started ? W.yellow : W.neutral;
   const macroStatus = hit === all ? 'All hit' : started ? 'In progress' : 'Not started';
 
-  const remaining = TARGETS.cals - totals.cals;
+  const remaining = targets.cals - totals.cals;
   const over = remaining < 0;
   const balColor = over ? W.red : totals.cals === 0 ? W.neutral : W.green;
 
@@ -65,7 +66,7 @@ function Monitors({ totals, onTargets }) {
         badge={Math.abs(Math.round(remaining))}
         badgeColor={balColor}
         status={over ? 'Over target' : 'Remaining'}
-        sub={`of ${TARGETS.cals} kcal`}
+        sub={`of ${targets.cals} kcal`}
         onPress={onTargets}
       />
     </div>
@@ -138,9 +139,9 @@ function IntakeCard({ counts, totals, accent, onAdd }) {
 }
 
 // ─── outlook copy ───────────────────────────────────────────────────────
-function outlookHeadline(totals) {
-  const remaining = Math.round(TARGETS.cals - totals.cals);
-  const pPct = Math.round((totals.protein / TARGETS.protein) * 100);
+function outlookHeadline(totals, targets) {
+  const remaining = Math.round(targets.cals - totals.cals);
+  const pPct = Math.round((totals.protein / targets.protein) * 100);
   if (remaining < 0) return `${Math.abs(remaining)} kcal over · protein ${pPct}%`;
   return `${remaining} kcal left · protein ${pPct}%`;
 }
@@ -157,7 +158,7 @@ function App() {
   const [customVersion, bumpCustom] = uS(0);
   // TARGETS is a mutated global, so applying new targets needs an explicit
   // re-render nudge — same pattern as custom meals above.
-  const [, bumpTargets] = uS(0);
+  const [targetsVersion, bumpTargets] = uS(0);
   const [units, setUnits] = useStoredState('fft_hero_units', 'abs');
   const isWide = useMediaQuery('(min-width: 768px)');
   const scrollRef = uR(null);
@@ -168,23 +169,30 @@ function App() {
     setUnits(typeof mode === 'string' ? mode : (units === 'pct' ? 'abs' : 'pct'));
 
   uE(() => {
-    fetchHistorySummary().then(({ log, targets }) => {
+    fetchHistorySummary().then(({ log, targets, targetHistory }) => {
       setLog(log);
+      applyTargetHistory(targetHistory);
       if (targets) {
         // Server wins over the localStorage cache applied at boot.
         applyTargets(targets);
-        bumpTargets(v => v + 1);
       } else if (localStorage.getItem(TARGETS_KEY)) {
         // Never synced: push the locally-saved targets up so this device's
-        // choice becomes the server's.
-        saveTargetsAPI(TARGETS).catch(e => console.error('Target migration failed:', e));
+        // choice becomes the server's. Backdated to the earliest logged day
+        // for the same reason the server's own backfill is — otherwise every
+        // day already logged would sit before the history starts.
+        const first = Object.keys(log).filter(k => !k.startsWith('_')).sort()[0];
+        saveTargets(TARGETS, first || todayStr());
       }
+      bumpTargets(v => v + 1);
     }).catch(e => console.error('Load failed:', e));
   }, []);
 
   const today = todayStr();
   const counts = log[currentDate] || {};
   const totals = uM(() => computeTotals(counts), [counts, customVersion]);
+  // The targets in force on the day being viewed — only equal to TARGETS when
+  // that day is on or after the most recent target change.
+  const dayTargets = uM(() => targetsForDate(currentDate), [currentDate, targetsVersion]);
   const weight = log[currentDate]?._kg ?? null;
   const streak = uM(() => computeStreak(log), [log]);
 
@@ -266,9 +274,9 @@ function App() {
       />
 
       <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
-        <RingTrio totals={totals} units={units} onToggle={toggleUnits}/>
+        <RingTrio totals={totals} targets={dayTargets} units={units} onToggle={toggleUnits}/>
 
-        <Monitors totals={totals} onTargets={() => setTargetsOpen(true)}/>
+        <Monitors totals={totals} targets={dayTargets} onTargets={() => setTargetsOpen(true)}/>
 
         {/* My Day */}
         <div style={{ padding: '40px 20px 20px' }}>
@@ -278,7 +286,7 @@ function App() {
         <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
           <WeightCard weight={weight} onSave={setWeight} accent={accent} trend={trend}/>
 
-          <OutlookBanner headline={outlookHeadline(totals)}
+          <OutlookBanner headline={outlookHeadline(totals, dayTargets)}
             onPress={() => setProgressOpen(true)}/>
 
           <IntakeCard counts={counts} totals={totals} accent={accent} onAdd={addCustomItem}/>

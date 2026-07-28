@@ -142,7 +142,8 @@ function HistorySheet({ open, onClose, log, accent, onJump }) {
             const totals = computeTotals(log[d]);
             const kg = log[d]._kg;
             const hasFood = totals.cals > 0;
-            const calsPct = Math.min(1, totals.cals / TARGETS.cals);
+            // Scored against the targets that were in force that day, not today's.
+            const calsPct = Math.min(1, totals.cals / targetsForDate(d).cals);
             return (
               <Card key={d} pad={14} onClick={() => { onJump(d); onClose(); }} style={{
                 display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 14, alignItems: 'center',
@@ -221,60 +222,135 @@ function TargetsSheet({ open, onClose, weightKg, accent, onApply }) {
   return (
     <Sheet open={open} onClose={onClose} height="80vh"
       title={pending ? 'Confirm New Targets' : 'Calorie Targets'}>
-      {!weightKg ? (
-        <div style={{ padding: 32, color: W.t3, fontSize: 13 }}>
-          Log your weight to see calorie targets.
-        </div>
-      ) : pending ? (
+      {pending ? (
         <ConfirmTargets pending={pending} accent={accent}
           onCancel={() => setPending(null)}
           onConfirm={() => { onApply(pending.next); setPending(null); onClose(); }}/>
       ) : (
         <div style={{ padding: '4px 16px 28px' }}>
-          <Card pad={14} style={{
-            marginBottom: 12, display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap',
-          }}>
-            <span style={T.label(10.5, W.t2)}>Based on</span>
-            <span style={T.num(17)}>{weightKg} kg</span>
-            <span style={{ fontSize: 12, fontWeight: 500, color: W.t3 }}>· {lbs.toFixed(1)} lb</span>
-          </Card>
-          <div style={{ ...T.label(10, W.t3), padding: '0 2px 8px' }}>Tap to set as your target</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {TARGET_BANDS.map(b => {
-              const cals = Math.round(lbs * b.mult);
-              const current = Math.abs(cals - TARGETS.cals) <= 15;
-              return (
-                <button key={b.mult}
-                  onClick={() => setPending({ band: b, cals, next: deriveTargets(cals) })}
-                  style={{
-                    display: 'grid', gridTemplateColumns: '4px 40px 1fr auto', gap: 12,
-                    alignItems: 'center', padding: '11px 14px 11px 10px', textAlign: 'left',
-                    borderRadius: W.radiusSm, cursor: 'pointer',
-                    background: current ? 'rgba(255,255,255,0.11)' : W.card,
-                    border: 'none', width: '100%',
-                  }}>
-                  <span style={{
-                    width: 4, height: 26, borderRadius: 2, background: b.cls, display: 'block',
-                  }}/>
-                  <span style={{ ...T.num(17), textAlign: 'center' }}>×{b.mult}</span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
-                    <span style={T.label(10.5, W.t2)}>{b.cat}</span>
-                    {current && <span style={{
-                      ...T.label(8.5, '#04212E'), background: accent,
-                      padding: '2px 5px', borderRadius: 4, whiteSpace: 'nowrap',
-                    }}>Current</span>}
-                  </span>
-                  <span style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
-                    <span style={T.num(16)}>{cals.toLocaleString()}</span>
-                    <span style={{ fontSize: 9.5, fontWeight: 600, color: W.t3 }}>KCAL</span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+          {/* The bands need a weight to be computed from; the history doesn't. */}
+          {!weightKg ? (
+            <div style={{ padding: '14px 2px 4px', color: W.t3, fontSize: 13 }}>
+              Log your weight to see calorie targets.
+            </div>
+          ) : (
+            <>
+              <Card pad={14} style={{
+                marginBottom: 12, display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap',
+              }}>
+                <span style={T.label(10.5, W.t2)}>Based on</span>
+                <span style={T.num(17)}>{weightKg} kg</span>
+                <span style={{ fontSize: 12, fontWeight: 500, color: W.t3 }}>· {lbs.toFixed(1)} lb</span>
+              </Card>
+              <div style={{ ...T.label(10, W.t3), padding: '0 2px 8px' }}>Tap to set as your target</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {TARGET_BANDS.map(b => {
+                  const cals = Math.round(lbs * b.mult);
+                  const current = Math.abs(cals - TARGETS.cals) <= 15;
+                  return (
+                    <button key={b.mult}
+                      onClick={() => setPending({ band: b, cals, next: deriveTargets(cals) })}
+                      style={{
+                        display: 'grid', gridTemplateColumns: '4px 40px 1fr auto', gap: 12,
+                        alignItems: 'center', padding: '11px 14px 11px 10px', textAlign: 'left',
+                        borderRadius: W.radiusSm, cursor: 'pointer',
+                        background: current ? 'rgba(255,255,255,0.11)' : W.card,
+                        border: 'none', width: '100%',
+                      }}>
+                      <span style={{
+                        width: 4, height: 26, borderRadius: 2, background: b.cls, display: 'block',
+                      }}/>
+                      <span style={{ ...T.num(17), textAlign: 'center' }}>×{b.mult}</span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
+                        <span style={T.label(10.5, W.t2)}>{b.cat}</span>
+                        {current && <span style={{
+                          ...T.label(8.5, '#04212E'), background: accent,
+                          padding: '2px 5px', borderRadius: 4, whiteSpace: 'nowrap',
+                        }}>Current</span>}
+                      </span>
+                      <span style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
+                        <span style={T.num(16)}>{cals.toLocaleString()}</span>
+                        <span style={{ fontSize: 9.5, fontWeight: 600, color: W.t3 }}>KCAL</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+          <TargetHistoryList accent={accent}/>
         </div>
       )}
     </Sheet>
+  );
+}
+
+// ─── target change log ──────────────────────────────────────────────────
+const historyDate = (s) =>
+  new Date(s + 'T00:00:00').toLocaleDateString('en-US', {
+    day: 'numeric', month: 'short', year: 'numeric',
+  });
+
+function TargetHistoryList({ accent }) {
+  const rows = window.TARGET_HISTORY || [];
+  if (!rows.length) return null;
+
+  return (
+    <div style={{ marginTop: 24 }}>
+      <div style={{ ...T.label(10, W.t3), padding: '0 2px 8px' }}>
+        Target history · {rows.length} {rows.length === 1 ? 'entry' : 'entries'}
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {rows.map((r, i) => {
+          // rows are newest first, so the entry this one replaced is the next.
+          const prev = rows[i + 1] || null;
+          const delta = prev ? Math.round(r.cals - prev.cals) : null;
+          const deltaColor = !delta ? W.t3 : delta > 0 ? W.green : W.amber;
+          return (
+            <div key={r.effective_from} style={{
+              padding: '12px 14px', borderRadius: W.radiusSm, background: W.card,
+            }}>
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+              }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
+                  <span style={{ fontSize: 12.5, fontWeight: 600, color: W.text }}>
+                    {historyDate(r.effective_from)}
+                  </span>
+                  {i === 0 && <span style={{
+                    ...T.label(8.5, '#04212E'), background: accent,
+                    padding: '2px 5px', borderRadius: 4, whiteSpace: 'nowrap',
+                  }}>Current</span>}
+                </span>
+                <span style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                  <span style={T.num(16)}>{Math.round(r.cals).toLocaleString()}</span>
+                  <span style={{ fontSize: 9.5, fontWeight: 600, color: W.t3 }}>KCAL</span>
+                  {delta != null && (
+                    <span style={{
+                      fontSize: 10.5, fontWeight: 700, color: deltaColor,
+                      background: `${deltaColor}1F`, padding: '3px 6px', borderRadius: 5,
+                      minWidth: 40, textAlign: 'center',
+                    }}>{delta > 0 ? '+' : ''}{delta}</span>
+                  )}
+                </span>
+              </div>
+              <div style={{
+                display: 'flex', gap: 12, marginTop: 6,
+                fontSize: 11.5, fontWeight: 500, color: W.t2,
+              }}>
+                <span><span style={{ color: W.t4 }}>P</span> {Math.round(r.protein)}g</span>
+                <span><span style={{ color: W.t4 }}>C</span> {Math.round(r.carbs)}g</span>
+                <span><span style={{ color: W.t4 }}>F</span> {Math.round(r.fat)}g</span>
+                {!prev && <span style={{ color: W.t4 }}>· first recorded</span>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ fontSize: 11, color: W.t4, padding: '10px 2px 0', lineHeight: 1.4 }}>
+        Each day is measured against the targets in force on that day.
+      </div>
+    </div>
   );
 }
 
@@ -770,4 +846,5 @@ function ProgressLegend({ swatch, label, dashed }) {
   );
 }
 
-Object.assign(window, { Sheet, Dock, HistorySheet, TargetsSheet, ProgressSheet, TARGET_BANDS });
+Object.assign(window, { Sheet, Dock, HistorySheet, TargetsSheet, ProgressSheet,
+  TargetHistoryList, TARGET_BANDS });
