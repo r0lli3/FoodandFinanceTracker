@@ -162,10 +162,13 @@ function DebugViewport() {
       const vh100 = probe.getBoundingClientRect().height;
       probe.remove();
 
-      const root = document.getElementById('app-root').getBoundingClientRect();
+      const rootEl = document.getElementById('app-root');
+      const root = rootEl ? rootEl.getBoundingClientRect() : { top: 0, bottom: 0 };
       const dock = [...document.querySelectorAll('div')]
         .find(d => getComputedStyle(d).position === 'absolute' && (d.textContent || '').includes('History'));
       const dr = dock ? dock.getBoundingClientRect() : null;
+      const pill = dock && dock.firstElementChild
+        ? dock.firstElementChild.getBoundingClientRect() : null;
 
       setM({
         standalone: String(window.navigator.standalone),
@@ -177,7 +180,7 @@ function DebugViewport() {
         insetTop, insetBottom,
         rootTop: Math.round(root.top), rootBottom: Math.round(root.bottom),
         dockBottom: dr ? Math.round(dr.bottom) : 'n/a',
-        pillBottom: dock ? Math.round(dock.firstElementChild.getBoundingClientRect().bottom) : 'n/a',
+        pillBottom: pill ? Math.round(pill.bottom) : 'n/a',
       });
     };
     read();

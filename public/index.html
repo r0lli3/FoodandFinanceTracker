@@ -25,15 +25,32 @@
     overflow: hidden;
     font-variant-numeric: tabular-nums;
   }
-  /* Anchored to the viewport rather than sized with vh/dvh — in an iOS
-     standalone PWA with viewport-fit=cover, dvh can under-report and leave
-     a dead band below the dock. inset:0 always covers exactly. */
-  #app-root { position: fixed; inset: 0; overflow: hidden; }
+  /* Height comes from --app-h, set below. Do NOT use inset:0 or dvh here:
+     in an iOS standalone PWA both resolve to the status-bar-shortened
+     viewport (measured: 793 on an 852 screen), leaving a dead band at the
+     bottom. See the script under this block. */
+  #app-root {
+    position: fixed; top: 0; left: 0;
+    width: 100%; height: var(--app-h, 100dvh);
+    overflow: hidden;
+  }
   button { font-family: inherit; }
   input[type=number] { -moz-appearance: textfield; }
   input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   ::-webkit-scrollbar { display: none; }
 </style>
+<script>
+  // iOS standalone + black-translucent gives the webview a viewport shorter
+  // than the screen by the status-bar inset, while still reporting that inset
+  // through env(). Measured on device: innerHeight 793, 100vh 852,
+  // safe-area-inset-top 59 — so dvh (and inset:0) stop 59px short of the
+  // bottom of the screen. vh resolves to the full screen there.
+  //
+  // In a normal browser the opposite is true: vh is the *large* viewport and
+  // would run under the URL bar, so dvh is the correct choice. Pick per mode.
+  document.documentElement.style.setProperty(
+    '--app-h', window.navigator.standalone ? '100vh' : '100dvh');
+</script>
 </head>
 <body>
 
