@@ -282,6 +282,34 @@ app.post('/api/targets', async (req, res) => {
   }
 });
 
+// DELETE /api/targets  body: { effective_from }
+// Drops one history entry — for correcting a wrongly-dated change. The last
+// remaining entry is protected: emptying the table would re-arm the legacy
+// backfill, which would resurrect the old `targets` row on the next cold start.
+app.delete('/api/targets', async (req, res) => {
+  const { effective_from } = req.body || {};
+  if (!effective_from || !ISO_DATE.test(effective_from)) {
+    return res.status(400).json({ error: 'effective_from must be YYYY-MM-DD' });
+  }
+  try {
+    await ensureTargetsTable();
+    const sql = getDb();
+    const [{ total }] = await sql`SELECT COUNT(*)::int AS total FROM target_history`;
+    if (total <= 1) {
+      return res.status(409).json({ error: 'cannot delete the only remaining target entry' });
+    }
+    const rows = await sql`
+      DELETE FROM target_history WHERE effective_from = ${effective_from}
+      RETURNING to_char(effective_from, 'YYYY-MM-DD') AS effective_from,
+                protein, carbs, fat, fiber, cals, created_at
+    `;
+    if (!rows.length) return res.status(404).json({ error: 'no target entry on that date' });
+    res.json({ ok: true, deleted: rowToTargets(rows[0]) });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // GET /api/history — all days that have been logged (food + weight)
 app.get('/api/history', async (req, res) => {
   try {

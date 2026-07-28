@@ -61,6 +61,13 @@ async function saveTargetsAPI(targets, effectiveFrom) {
     body: JSON.stringify({ ...targets, effective_from: effectiveFrom }),
   });
 }
+async function deleteTargetsAPI(effectiveFrom) {
+  return fetch('/api/targets', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ effective_from: effectiveFrom }),
+  });
+}
 async function saveCountAPI(date, mealId, count) {
   return fetch('/api/log', {
     method: 'POST',
@@ -106,8 +113,14 @@ const deriveTargets = (newCals) => {
 
 // localStorage is only a cache so the first paint isn't the default targets;
 // the server is the source of truth and overwrites it on load.
+// Only the macro fields are copied: history rows also carry effective_from and
+// created_at, and letting those settle into TARGETS would mean a later save
+// posted a stale date along with the new numbers.
+const TARGET_KEYS = ['protein', 'carbs', 'fat', 'fiber', 'cals'];
 const applyTargets = (next) => {
-  Object.assign(TARGETS, next);
+  for (const k of TARGET_KEYS) {
+    if (typeof next[k] === 'number') TARGETS[k] = next[k];
+  }
   try { localStorage.setItem(TARGETS_KEY, JSON.stringify(TARGETS)); } catch (_) {}
 };
 
@@ -128,6 +141,20 @@ const saveTargets = (next, from) => {
     ...TARGET_HISTORY.filter(r => r.effective_from !== date),
   ]);
   saveTargetsAPI(TARGETS, date).catch(e => console.error('Save targets failed:', e));
+};
+
+// Removes one history entry. Unlike saveTargets this waits on the server —
+// it can legitimately refuse (last entry, or no entry on that date), and the
+// list must not show a row as gone when it isn't. Deleting the newest entry
+// promotes the one beneath it to current.
+const deleteTargetEntry = async (date) => {
+  const res = await deleteTargetsAPI(date);
+  if (!res.ok) {
+    const { error } = await res.json().catch(() => ({}));
+    throw new Error(error || 'Could not delete that entry');
+  }
+  applyTargetHistory(TARGET_HISTORY.filter(r => r.effective_from !== date));
+  if (TARGET_HISTORY.length) applyTargets(TARGET_HISTORY[0]);
 };
 
 // Consecutive days with anything logged, ending today (or yesterday if today
@@ -637,5 +664,5 @@ Object.assign(window, { Ring, RingStat, Chevron, useStoredState, useMediaQuery,
   Card, CardHead, MonitorCard, OutlookBanner,
   TopBar, MealRow, Stepper, WeightCard,
   todayStr, offsetDate, dayName, dayNum, monthShort, allMeals, computeTotals, computeStreak,
-  deriveTargets, saveTargets, applyTargets, applyTargetHistory,
+  deriveTargets, saveTargets, applyTargets, applyTargetHistory, deleteTargetEntry,
   loadLog, saveLog, ensureSeed, ACCENT_OPTIONS, TWEAK_DEFAULTS });
